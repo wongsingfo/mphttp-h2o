@@ -29,10 +29,13 @@
 #include "h2o/hpack.h"
 #include "h2o/httpclient.h"
 #include "h2o/http2_common.h"
+#include "h2o/rand.h"
 
 #define H2O_HTTP2_SETTINGS_CLIENT_CONNECTION_WINDOW_SIZE 16777216
 #define H2O_HTTP2_SETTINGS_CLIENT_HEADER_TABLE_SIZE 4096
 #define H2O_HTTP2_SETTINGS_CLIENT_MAX_FRAME_SIZE 16384
+#define H2O_HTTP2_MAX_PING 256
+#define H2O_HTTP2_PING_INTERVAL 100
 
 enum enum_h2o_http2client_stream_state {
     H2O_HTTP2CLIENT_STREAM_STATE_SEND_HEADERS,
@@ -58,6 +61,15 @@ struct st_h2o_http2client_conn_t {
     uint32_t max_open_stream_id;
     h2o_timer_t io_timeout;
     h2o_timer_t keepalive_timeout;
+
+    /**
+     * send ping every 100ms
+     * |ping_bucket| maps ping_data (0-H2O_HTTP2_MAX_PING) to time
+     */
+    h2o_timer_t ping_interval;
+    struct timeval* ping_bucket;
+    uint8_t ping_marker;
+    uint32_t ping_rtt;
 
     struct {
         h2o_hpack_header_table_t header_table;
@@ -169,6 +181,11 @@ static uint32_t get_max_buffer_size(h2o_httpclient_ctx_t *ctx)
     if (sz > INT32_MAX)
         sz = INT32_MAX;
     return (uint32_t)sz;
+}
+
+uint32_t h2o_httpclient__h2_get_ping_rtt(h2o_httpclient__h2_conn_t *_conn) {
+  struct st_h2o_http2client_conn_t *conn = (void *)_conn;
+  return conn->ping_rtt;
 }
 
 uint32_t h2o_httpclient__h2_get_max_concurrent_streams(h2o_httpclient__h2_conn_t *_conn)
@@ -626,6 +643,46 @@ static int handle_push_promise_frame(struct st_h2o_http2client_conn_t *conn, h2o
     return H2O_HTTP2_ERROR_PROTOCOL;
 }
 
+static uint8_t get_next_ping_marker(struct st_h2o_http2client_conn_t *conn) {
+  uint8_t rv = conn->ping_marker;
+  if (conn->ping_bucket[rv].tv_usec || conn->ping_bucket[rv].tv_sec) {
+    h2o_fatal("PING bucket is full");
+  }
+  if (rv + 1 == H2O_HTTP2_MAX_PING) {
+    conn->ping_marker = 0;
+  } else {
+    conn->ping_marker += 1;
+  }
+  return rv;
+}
+
+static void send_ping_frame(h2o_timer_t *timer) {
+  h2o_http2_ping_payload_t payload;
+
+  struct st_h2o_http2client_conn_t *conn = H2O_STRUCT_FROM_MEMBER(struct st_h2o_http2client_conn_t, ping_interval, timer);
+  uint8_t marker = get_next_ping_marker(conn);
+  payload.data[0] = marker;
+  h2o_loop_t *loop = conn->super.ctx->loop;
+  conn->ping_bucket[marker] = h2o_gettimeofday(loop);
+
+  h2o_http2_encode_ping_frame(&conn->output.buf, 0, payload.data);
+  request_write(conn);
+
+  if (! h2o_timer_is_linked(&conn->ping_interval)) {
+    h2o_timer_link(conn->super.ctx->loop, H2O_HTTP2_PING_INTERVAL, &conn->ping_interval);
+  }
+}
+
+static void calc_ping_rtt(struct st_h2o_http2client_conn_t *conn, struct timeval *t) {
+  uint32_t now_rtt = t->tv_sec * 1000000 + t->tv_usec;
+  if (conn->ping_rtt == 0) {
+    conn->ping_rtt = now_rtt;
+  } else {
+    conn->ping_rtt = 0.8f * conn->ping_rtt + 0.2f * now_rtt;
+  }
+//  printf("ping(%d) rtt: %d ms\n", conn->ping_marker, conn->ping_rtt / 1000);
+}
+
 static int handle_ping_frame(struct st_h2o_http2client_conn_t *conn, h2o_http2_frame_t *frame, const char **err_desc)
 {
     h2o_http2_ping_payload_t payload;
@@ -637,6 +694,15 @@ static int handle_ping_frame(struct st_h2o_http2client_conn_t *conn, h2o_http2_f
     if ((frame->flags & H2O_HTTP2_FRAME_FLAG_ACK) == 0) {
         h2o_http2_encode_ping_frame(&conn->output.buf, 1, payload.data);
         request_write(conn);
+    } else {
+      uint8_t marker = payload.data[0];
+      struct timeval send_time = conn->ping_bucket[marker];
+      conn->ping_bucket[marker] = (struct timeval) {0, 0};
+      h2o_loop_t *loop = conn->super.ctx->loop;
+      struct timeval receive_time = h2o_gettimeofday(loop);
+      struct timeval delta_time;
+      timersub(&receive_time, &send_time, &delta_time);
+      calc_ping_rtt(conn, &delta_time);
     }
 
     return 0;
@@ -774,6 +840,8 @@ static ssize_t expect_settings(struct st_h2o_http2client_conn_t *conn, const uin
 
 static void close_connection_now(struct st_h2o_http2client_conn_t *conn)
 {
+    if (h2o_timer_is_linked(&conn->ping_interval))
+      h2o_timer_unlink(&conn->ping_interval);
     assert(!h2o_timer_is_linked(&conn->output.defer_timeout));
 
     free(conn->super.origin_url.authority.base);
@@ -808,6 +876,8 @@ static void close_connection_now(struct st_h2o_http2client_conn_t *conn)
     h2o_hpack_dispose_header_table(&conn->input.header_table);
     if (conn->input.headers_unparsed != NULL)
         h2o_buffer_dispose(&conn->input.headers_unparsed);
+
+    free(conn->ping_bucket);
 
     free(conn);
 }
@@ -1175,6 +1245,10 @@ static struct st_h2o_http2client_conn_t *create_connection(h2o_httpclient_ctx_t 
         h2o_linklist_insert(&connpool->http2.conns, &conn->super.link);
     conn->io_timeout.cb = on_io_timeout;
     conn->keepalive_timeout.cb = on_keepalive_timeout;
+    conn->ping_interval.cb = send_ping_frame;
+    size_t bucket_size = sizeof(struct timeval) * H2O_HTTP2_MAX_PING;
+    conn->ping_bucket = h2o_mem_alloc(bucket_size);
+    memset(conn->ping_bucket, 0, bucket_size);
 
     /* output */
     conn->output.header_table.hpack_capacity = H2O_HTTP2_SETTINGS_CLIENT_HEADER_TABLE_SIZE;
@@ -1189,7 +1263,6 @@ static struct st_h2o_http2client_conn_t *create_connection(h2o_httpclient_ctx_t 
         H2O_HTTP2_SETTINGS_DEFAULT.header_table_size;
     h2o_http2_window_init(&conn->input.window, H2O_HTTP2_SETTINGS_DEFAULT.initial_window_size);
     conn->input.read_frame = expect_settings;
-
     return conn;
 }
 
@@ -1297,6 +1370,7 @@ void h2o_httpclient__h2_on_connect(h2o_httpclient_t *_client, h2o_socket_t *sock
         /* send preface, settings, and connection-level window update */
         send_client_preface(conn, stream->super.ctx);
         h2o_socket_read_start(conn->super.sock, on_read);
+        h2o_timer_link(conn->super.ctx->loop, 0, &conn->ping_interval);
     }
 
     setup_stream(stream);
