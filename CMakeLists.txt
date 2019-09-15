@@ -507,6 +507,7 @@ IF (WSLAY_FOUND)
 ENDIF (WSLAY_FOUND)
 #ADD_EXECUTABLE(examples-latency-optimization-evloop examples/libh2o/latency-optimization.c)
 ADD_EXECUTABLE(h2o-httpclient src/httpclient.c)
+ADD_EXECUTABLE(h2o-mphttp src/mphttp.c)
 #ADD_EXECUTABLE(examples-socket-client-evloop examples/libh2o/socket-client.c)
 #ADD_EXECUTABLE(examples-simple-evloop examples/libh2o/simple.c)
 #ADD_EXECUTABLE(examples-websocket-evloop lib/websocket.c examples/libh2o/websocket.c)
@@ -536,6 +537,10 @@ ADD_EXECUTABLE(h2o-httpclient src/httpclient.c)
 SET_TARGET_PROPERTIES(h2o-httpclient PROPERTIES
     COMPILE_FLAGS "-DH2O_USE_LIBUV=0")
 TARGET_LINK_LIBRARIES(h2o-httpclient libh2o-evloop ${EXTRA_LIBS})
+
+SET_TARGET_PROPERTIES(h2o-mphttp PROPERTIES
+        COMPILE_FLAGS "-DH2O_USE_LIBUV=0")
+TARGET_LINK_LIBRARIES(h2o-mphttp libh2o-evloop ${EXTRA_LIBS})
 #
 #SET_TARGET_PROPERTIES(examples-socket-client-evloop PROPERTIES
 #    COMPILE_FLAGS "-DH2O_USE_LIBUV=0"
