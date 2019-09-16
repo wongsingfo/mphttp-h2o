@@ -20,6 +20,7 @@ h2o_mpclient_t* h2o_mpclient_create(char* request_url, h2o_httpclient_ctx_t *_ct
   h2o_mem_set_secure(mp, 0, sizeof(h2o_mpclient_t));
   mp->ctx = _ctx;
   mp->connpool = h2o_mem_alloc(sizeof(h2o_httpclient_connection_pool_t));
+  mp->url_prefix = request_url;
   h2o_socketpool_t *sockpool = h2o_mem_alloc(sizeof(*sockpool));
   h2o_socketpool_target_t *target = h2o_socketpool_create_target(&url_parsed, NULL);
   h2o_socketpool_init_specific(sockpool, 10, &target, 1, NULL);
@@ -62,13 +63,23 @@ void h2o_mpclient_update(h2o_mpclient_t* mp) {
   // TODO: put the rangeclient with larger chunk to |rangeclient.running|
 }
 
-int h2o_mpclient_fetch(h2o_mpclient_t* mp, char *request_url, size_t sz_hint, char *save_to_file) {
-  // |h2o_rangeclient_create| will copy |request_url|
+static int assemble_url(h2o_mpclient_t *mp, char *request_path, h2o_url_t *url_parsed, char *request_url) {
+  strncpy(request_url, mp->url_prefix, 128);
+  strncat(request_url, request_path, 128);
+  if (h2o_url_parse(request_url, SIZE_MAX, url_parsed) != 0) {
+    h2o_error_printf("unrecognized type of URL: %s", request_url);
+    return -1;
+  }
+  return 0;
+}
+
+int h2o_mpclient_fetch(h2o_mpclient_t *mp, char *request_path, size_t sz_hint, char *save_to_file) {
+  // |h2o_rangeclient_create| will copy |url_parsed| and |buf|
   // we can allocate it on stack
   h2o_url_t url_parsed;
-  if (h2o_url_parse(request_url, SIZE_MAX, &url_parsed) != 0) {
-    h2o_error_printf("unrecognized type of URL: %s", request_url);
-    return -2;
+  char buf[128];
+  if (assemble_url(mp, request_path, &url_parsed, buf) < 0) {
+    return -1;
   }
 
   h2o_mpclient_update(mp);

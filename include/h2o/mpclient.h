@@ -18,6 +18,7 @@ struct st_h2o_mpclient_t {
     h2o_rangeclient_t *running;
   } rangeclient;
 
+  char *url_prefix;
   h2o_httpclient_ctx_t *ctx;
   h2o_httpclient_connection_pool_t *connpool;
 };

@@ -37,9 +37,10 @@ int main(int argc, char* argv[]) {
   queue = h2o_multithread_create_queue(ctx.loop);
   h2o_multithread_register_receiver(queue, ctx.getaddr_receiver, h2o_hostinfo_getaddr_receiver);
 
-  h2o_mpclient_t *if0 = h2o_mpclient_create("https://10.100.1.2", &ctx);
-  h2o_mpclient_fetch(if0,
-                     "https://10.100.1.2/seq",
+  h2o_mpclient_t *if1 = h2o_mpclient_create("https://10.100.1.2/", &ctx);
+  h2o_mpclient_t *if2 = h2o_mpclient_create("https://10.100.2.2/", &ctx);
+  h2o_mpclient_fetch(if1,
+                     "seq",
                      1 * 1000,
                      "./2M.bin");
 
