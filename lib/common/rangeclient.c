@@ -119,7 +119,16 @@ h2o_rangeclient_t *h2o_rangeclient_create(h2o_httpclient_connection_pool_t *conn
   client->mempool = h2o_mem_alloc(sizeof(h2o_mem_pool_t));
   h2o_mem_init_pool(client->mempool);
   client->ctx = ctx;
-  // O_WRONLY | O_CREAT | O_APPEND
+  int default_permissions =
+    S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
+  int fd;
+  if ((fd = open(save_to_file,
+                 O_WRONLY | O_CREAT | O_NONBLOCK | O_NOCTTY,
+                 default_permissions) < 0)) {
+    h2o_fatal("open() failed");
+  }
+  close(fd);
+
   client->file = fopen(save_to_file, "rb+");
   client->url_parsed = h2o_mem_alloc_pool(client->mempool, h2o_url_t, 1);
   h2o_url_copy(client->mempool, client->url_parsed, url_parsed);
