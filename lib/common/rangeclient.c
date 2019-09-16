@@ -57,8 +57,40 @@ static void print_status_line(int version, int status, h2o_iovec_t msg)
   }
 }
 
+static int parse_content_range(size_t *filezs, h2o_header_t *headers, size_t num_headers) {
+  int i;
+  h2o_iovec_t content_range = (h2o_iovec_t) {H2O_STRLIT("content-range")};
+
+
+  for (i = 0; i < num_headers; i++) {
+    const char *name = headers[i].orig_name;
+    if (name == NULL)
+      name = headers[i].name->base;
+    if (h2o_memis(name, headers[i].name->len, content_range.base, content_range.len)) {
+      break;
+    }
+  }
+  char buf[32];
+  if (i == num_headers) {
+    h2o_error_printf("response header does not contain content-range\n");
+    return -1;
+  }
+  if (headers[i].value.len >= 32) {
+    h2o_error_printf("header value is too long\n");
+    return -1;
+  }
+
+  sprintf(buf, "%.*s", (int) headers[i].value.len, headers[i].value.base);
+
+  if (sscanf(buf, "bytes %*zu-%*zu/%zu", filezs) < 1) {
+    h2o_error_printf("can not read file size from headers\n");
+    return -1;
+  }
+  return 0;
+}
+
 static h2o_httpclient_body_cb
-on_head(h2o_httpclient_t *client, const char *errstr, int version, int status, h2o_iovec_t msg,
+on_head(h2o_httpclient_t *httpclient, const char *errstr, int version, int status, h2o_iovec_t msg,
         h2o_header_t *headers, size_t num_headers, int header_requires_dup) {
   if (errstr) {
     h2o_error_printf("on_head failed");
@@ -67,11 +99,18 @@ on_head(h2o_httpclient_t *client, const char *errstr, int version, int status, h
   if (status != 206) {
     h2o_error_printf("warning: status is %d\n", status);
   }
+  h2o_rangeclient_t *client = httpclient->data;
 //  print_status_line(version, status, msg);
 
-  /* TODO: parse Content-Range: <unit> <range-start>-<range-end>/<size>
-   * should add a callback here?
-   */
+  size_t filezs;
+
+  if (client->range.end == 0) {
+    if (parse_content_range(&filezs, headers, num_headers) < 0) {
+      return NULL;
+    }
+    client->range.end = filezs;
+    // TODO: should add a callback here?
+  }
 
   return on_body;
 }
