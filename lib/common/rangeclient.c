@@ -71,11 +71,12 @@ static h2o_httpclient_head_cb on_connect(h2o_httpclient_t *httpclient, const cha
   size_t buf_len;
   if (client->range.end > 0) {
     buf_len = snprintf(client->buf, 64, "bytes=%zu-%zu",
-                       client->range.begin, client->range.end);
+                       client->range.begin, client->range.end - 1);
   } else {
     buf_len = snprintf(client->buf, 64, "bytes=%zu-",
                        client->range.begin);
   }
+  assert(buf_len < 64);
   h2o_header_t *range = client->range_header;
   range->name = &range_str;
   range->value = h2o_iovec_init(client->buf, buf_len);

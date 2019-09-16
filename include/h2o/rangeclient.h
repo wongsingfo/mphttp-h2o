@@ -24,6 +24,7 @@ struct st_h2o_rangeclient_t {
   FILE *file;
   h2o_header_t *range_header;
 
+  /* bytes range: [begin, end) */
   struct {
     size_t begin;
     /* |end| can be zero, indicating that the file size is unknown */
