@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include "h2o/memory.h"
 
-static h2o_iovec_t range_str = (h2o_iovec_t) {H2O_STRLIT("Range")};
+static h2o_iovec_t range_str = (h2o_iovec_t) {H2O_STRLIT("range")};
 
 static int fd_can_write(int fd) {
   int val;
@@ -28,7 +28,7 @@ static int fd_can_write(int fd) {
 static int on_body(h2o_httpclient_t *httpclient, const char *errstr) {
   if (errstr && errstr != h2o_httpclient_error_is_eos) {
     h2o_error_printf("on_body failed");
-    return NULL;
+    return -1;
   }
   h2o_rangeclient_t *client = httpclient->data;
   h2o_buffer_t *buf = *httpclient->buf;
@@ -36,9 +36,25 @@ static int on_body(h2o_httpclient_t *httpclient, const char *errstr) {
   h2o_buffer_consume(&buf, buf->size);
 
   if (errstr == h2o_httpclient_error_is_eos) {
+    printf("done!\n");
+    fclose(client->file);
     client->is_closed = 1;
   }
   return 0;
+}
+
+static void print_status_line(int version, int status, h2o_iovec_t msg)
+{
+  printf("HTTP/%d", (version >> 8));
+  if ((version & 0xff) != 0) {
+    printf(".%d", version & 0xff);
+  }
+  printf(" %d", status);
+  if (msg.len != 0) {
+    printf(" %.*s\n", (int)msg.len, msg.base);
+  } else {
+    printf("\n");
+  }
 }
 
 static h2o_httpclient_body_cb
@@ -48,6 +64,10 @@ on_head(h2o_httpclient_t *client, const char *errstr, int version, int status, h
     h2o_error_printf("on_head failed");
     return NULL;
   }
+  if (status != 206) {
+    h2o_error_printf("warning: status is %d\n", status);
+  }
+//  print_status_line(version, status, msg);
 
   /* TODO: parse Content-Range: <unit> <range-start>-<range-end>/<size>
    * should add a callback here?
@@ -98,11 +118,11 @@ h2o_rangeclient_t *h2o_rangeclient_create(h2o_httpclient_connection_pool_t *conn
   h2o_rangeclient_t *client = h2o_mem_alloc(sizeof(h2o_rangeclient_t));
   client->mempool = h2o_mem_alloc(sizeof(h2o_mem_pool_t));
   h2o_mem_init_pool(client->mempool);
-  client->connpool = connpool;
   client->ctx = ctx;
   // O_WRONLY | O_CREAT | O_APPEND
   client->file = fopen(save_to_file, "ab");
-  client->url_parsed = url_parsed;
+  client->url_parsed = h2o_mem_alloc_pool(client->mempool, h2o_url_t, 1);
+  h2o_url_copy(client->mempool, client->url_parsed, url_parsed);
   client->range.begin = bytes_begin;
   client->range.end = bytes_end;
   client->buf = h2o_mem_alloc_pool(client->mempool, char, 64);
@@ -110,13 +130,13 @@ h2o_rangeclient_t *h2o_rangeclient_create(h2o_httpclient_connection_pool_t *conn
   client->is_closed = 0;
 
   if (fseeko(client->file, bytes_begin, SEEK_SET) < 0) {
-    h2o_fatal(strerror(errno));
+    h2o_fatal("fseeko() failed");
   }
   h2o_httpclient_connect(&client->httpclient,
                          client->mempool,
                          client,
                          client->ctx,
-                         client->connpool,
+                         connpool,
                          client->url_parsed,
                          on_connect);
   return client;

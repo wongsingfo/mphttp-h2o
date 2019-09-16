@@ -39,6 +39,7 @@ h2o_rangeclient_t *h2o_rangeclient_create(h2o_httpclient_connection_pool_t *conn
                                           h2o_httpclient_ctx_t *ctx,
                                           h2o_url_t *url_parsed, char *save_to_file,
                                           size_t bytes_begin, size_t bytes_end);
+void h2o_rangeclient_destroy(h2o_rangeclient_t *client);
 
 #ifdef __cplusplus
 }
