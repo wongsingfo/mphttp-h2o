@@ -307,6 +307,7 @@ SET(LIB_SOURCE_FILES
     lib/common/http1client.c
     lib/common/http2client.c
     lib/common/httpclient.c
+    lib/common/rangeclient.c
     lib/common/memcached.c
     lib/common/memory.c
     lib/common/multithread.c
