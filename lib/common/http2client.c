@@ -673,6 +673,11 @@ static void send_ping_frame(h2o_timer_t *timer) {
   }
 }
 
+static uint32_t get_ping_rtt(h2o_httpclient_t *_client) {
+  struct st_h2o_http2client_stream_t *client = (struct st_h2o_http2client_stream_t *)_client;
+  return client->conn->ping_rtt;
+}
+
 static void calc_ping_rtt(struct st_h2o_http2client_conn_t *conn, struct timeval *t) {
   uint32_t now_rtt = t->tv_sec * 1000000 + t->tv_usec;
   if (conn->ping_rtt == 0) {
@@ -1355,6 +1360,7 @@ static void setup_stream(struct st_h2o_http2client_stream_t *stream)
     stream->super.get_socket = do_get_socket;
     stream->super.update_window = do_update_window;
     stream->super.write_req = do_write_req;
+    stream->super.get_rtt = get_ping_rtt;
 }
 
 void h2o_httpclient__h2_on_connect(h2o_httpclient_t *_client, h2o_socket_t *sock, h2o_url_t *origin)

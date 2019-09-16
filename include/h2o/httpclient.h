@@ -157,6 +157,10 @@ struct st_h2o_httpclient_t {
      * given data is sent to the server.
      */
     int (*write_req)(h2o_httpclient_t *client, h2o_iovec_t chunk, int is_end_stream);
+    /**
+     * returns estimated rtt (in us)
+     */
+    uint32_t (*get_rtt)(h2o_httpclient_t *client);
 
     h2o_timer_t _timeout;
     h2o_socketpool_connect_request_t *_connect_req;
