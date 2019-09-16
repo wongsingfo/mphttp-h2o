@@ -1,21 +1,65 @@
-H2O - an optimized HTTP server with support for HTTP/1.x and HTTP/2
-===
+# CompNet.Lab3: Multipath HTTP/2
 
-[![Build Status](https://travis-ci.org/h2o/h2o.svg?branch=master)](https://travis-ci.org/h2o/h2o)
-<a href="https://scan.coverity.com/projects/h2o-h2o">
-  <img alt="Coverity Scan Build Status"
-       src="https://scan.coverity.com/projects/10654/badge.svg"/>
-</a>
+Author: 
 
-Copyright (c) 2014-2019 [DeNA Co., Ltd.](http://dena.com/), [Kazuho Oku](https://github.com/kazuho/), [Tatsuhiko Kubo](https://github.com/cubicdaiya/), [Domingo Alvarez Duarte](https://github.com/mingodad/), [Nick Desaulniers](https://github.com/nickdesaulniers/), [Marc Hörsken](https://github.com/mback2k), [Masahiro Nagano](https://github.com/kazeburo/), Jeff Marrison, [Daisuke Maki](https://github.com/lestrrat/), [Laurentiu Nicola](https://github.com/GrayShade/), [Justin Zhu](https://github.com/zlm2012/), [Tatsuhiro Tsujikawa](https://github.com/tatsuhiro-t), [Ryosuke Matsumoto](https://github.com/matsumotory), [Masaki TAGAWA](https://github.com/mochipon), [Masayoshi Takahashi](https://github.com/takahashim), [Chul-Woong Yang](https://github.com/cwyang), [Shota Fukumori](https://github.com/sorah), [Satoh Hiroh](https://github.com/cho45), [Fastly, Inc.](https://www.fastly.com), [David Carlier](https://github.com/devnexen), [Frederik Deweerdt](https://github.com/deweerdt), [Jonathan Foote](https://github.com/jfoote), [Yannick Koechlin](https://github.com/yannick), [Harrison Bowden](https://github.com/hbowden), [Kazantsev Mikhail](https://github.com/kazan417)
+## Introduction
 
-H2O is a new generation HTTP server.
-Not only is it very fast, it also provides much quicker response to end-users when compared to older generations of HTTP servers.
+In the third lab, you are required to develop a HTTP/2-based downloader, which fetches HTTP objects over multiple network paths. The idea behind this lab originates from the paper [_MP-H2: A Client-only Multipath Solution for HTTP/2_]() (Nikravesh et al.). Before starting working on the lab, you are supposed to carefully read the paper for better understanding of how the downloader functions. 
 
-Written in C and licensed under [the MIT License](http://opensource.org/licenses/MIT), it can also be used as a library.
+For simplicity, we won't implement the downloader on Android devices, as described in the paper. Instead, the downloader will be implemented on the top of a HTTP/2 library in C programming language. Also, to make the things easier, you downloader will be run in an emulated environment with exactly two CDNs and one client. In order to emulate a network environment with two CDN servers, we will take advantage of [Linux namespaces](http://man7.org/linux/man-pages/man7/namespaces.7.html) to set up a virtual network on a Linux machine. We omit the DNS lookup here and the IP addresses of the servers are given. Two CDN servers serve the exactly same content. Your target in this lab is to reduce the overall downloading time for a given set of file download requests. We will measure the downloading time of your implementation under varied network conditions.
 
-For more information, please refer to the documentation at [h2o.examp1e.net](https://h2o.examp1e.net).
+After finishing this lab, you are expected to:
 
-Reporting Security Issues
----
-Please report vulnerabilities to h2o-vuln@googlegroups.com.
+- Get a taste of how the multpath solution boosts downloading performance.
+- Be familiar with new features in HTTP/2, including stream multiplexing, flow control, and application-layer PING.
+- Be capable of adding new features to an existing production-level library.
+
+## Handout Instructions
+
+This section will instruct you to set up the development environment on a Linux machine. We will evaluate your programs in the same environment.
+
+### Download the HTTP/2 Library
+
+Our lab is based on a mature HTTP/2 Library, named [H2O](https://github.com/h2o/h2o). After building the library on you Linux machine, you can:
+
+- Follow the [Wiki](https://github.com/h2o/h2o/wiki) to run static content server.
+- Develop your multipath downloader with the help of the library.
+
+### Create a Virtual Network
+
+Again, the [vnetUtils]() is our good friend. You may find its usage in handout of lab2. In lab3, we create a virtual network by running `makeVNet` with the following configuration (note that the last two blank lines is left intentionally):
+
+```
+H2
+2
+0 1 10.100.1
+0 2 10.100.2
+
+
+```
+
+By now, in addition to the default namespace, you have already set up two virtual network namespaces. This can be verified by running the command `ip netns list`. You should run a content server in each network namespace, and your downloader will be run in the default namespace.
+
+## Test and Evaluation
+
+The grading of the final hand-in will be based on the download time your downloader takes on the given traces. Each trace contains:
+
+- Two bandwidth and RTT profiles used to specify the network condition (imposed by Linux `tc`), one for each CDN server. 
+- A list of the files the program need to download.
+
+We will give you a handful of testing traces, which may be useful for debugging. However, the final evaluation traces are kept secret.
+
+## Hints on Implementation
+
+TODO
+
+## Handin Instructions
+
+In this lab, you should submit a directory named `lab3` containing the following items in an archive named `lab3-[your name]-[your student ID].tar`:
+
+- `src/`: Source code of your programs
+- `Makefile` / `CMakeLists.txt`: Files that instruct build system to build your programs. 
+
+## Contact the Staff
+
+
