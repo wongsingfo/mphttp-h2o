@@ -33,7 +33,8 @@ static int on_body(h2o_httpclient_t *httpclient, const char *errstr) {
   h2o_rangeclient_t *client = httpclient->data;
   h2o_buffer_t *buf = *httpclient->buf;
   fwrite(buf->bytes, 1, buf->size, client->file);
-  h2o_buffer_consume(&buf, buf->size);
+  // we can not use &buf for the first argument of |h2o_buffer_consume|
+  h2o_buffer_consume(&(*httpclient->buf), buf->size);
 
   if (errstr == h2o_httpclient_error_is_eos) {
     printf("done!\n");
