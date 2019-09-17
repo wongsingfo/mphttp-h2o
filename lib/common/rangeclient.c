@@ -9,6 +9,9 @@
 #include <stdio.h>
 #include "h2o/memory.h"
 
+#define H2O_RANGECLIENT_NUM_SAMPLE_SKIPPED 0
+#define H2O_RANGECLIENT_MIN_RECEIVE_CHUNK 1024 // in bytes; for bandwidth sampler
+
 static h2o_iovec_t range_str = (h2o_iovec_t) {H2O_STRLIT("range")};
 
 static int fd_can_write(int fd) {
@@ -25,6 +28,62 @@ static int fd_can_write(int fd) {
   }
 }
 
+static void h2o_bandwidth_update(h2o_bandwidth_sampler_t *sampler, size_t new_bytes,
+                                 int64_t now, size_t received) {
+  if (sampler->last_ack_time == 0) {
+    sampler->last_ack_time = now;
+    sampler->last_received = received;
+    sampler->skip_sample = H2O_RANGECLIENT_NUM_SAMPLE_SKIPPED;
+    return;
+  }
+  int64_t time_delta = now - sampler->last_ack_time;
+  size_t received_delta = received - sampler->last_received;
+  if (time_delta == 0 || received_delta < H2O_RANGECLIENT_MIN_RECEIVE_CHUNK) {
+    return;
+  }
+
+  if (H2O_RANGECLIENT_NUM_SAMPLE_SKIPPED > 0 && sampler->skip_sample > 0) {
+    sampler->skip_sample -= 1;
+    sampler->last_ack_time = now;
+    sampler->last_received = received;
+    return;
+  }
+
+  /*
+   * received_delta : bytes
+   * time_delta : ms
+   * sample : bytes / s
+   */
+  size_t sample = received_delta * 1000 / time_delta;
+
+//  sampler->samples[sampler->i_sample] = sample;
+//  sampler->i_sample += 1;
+//  if (sampler->i_sample == H2O_RANGECLIENT_NUM_BANDWIDTH_SAMPLES) {
+//    sampler->i_sample = 0;
+//  }
+
+  if (sampler->bw == 0) {
+    sampler->bw = sample;
+    return;
+  }
+  sampler->bw = sampler->bw * 0.7 + sample * 0.3;
+
+
+  sampler->last_ack_time = now;
+  sampler->last_received = received;
+}
+
+static size_t h2o_bandwidth_get_bw(h2o_bandwidth_sampler_t *sampler) {
+  return sampler->bw;
+
+  /* harmonic mean
+   * + robust to larger outliers
+   * + Improving Fairness, Efficiency, and Stability
+   *    ref: HTTP-based Adaptive Video Streaming with FESTIVE (CoNEXT’12)
+   */
+//  return 1.0 / sampler->bw;
+}
+
 static int on_body(h2o_httpclient_t *httpclient, const char *errstr) {
   if (errstr && errstr != h2o_httpclient_error_is_eos) {
     h2o_error_printf("on_body failed");
@@ -36,6 +95,12 @@ static int on_body(h2o_httpclient_t *httpclient, const char *errstr) {
   if (ferror(client->file) != 0) {
     h2o_fatal("fwrite(buf->bytes, 1, buf->size, client->file) failed");
   }
+  client->range.received += buf->size;
+  // do sample before |h2o_buffer_consume|
+  h2o_bandwidth_update(client->bw_sampler, buf->size,
+                       h2o_now(client->ctx->loop), client->range.received);
+//  printf("%zu Kb/sec\n", h2o_bandwidth_get_bw(client->bw_sampler) / 1024);
+
   // we can not use &buf for the first argument of |h2o_buffer_consume|
   h2o_buffer_consume(&(*httpclient->buf), buf->size);
 
@@ -180,6 +245,9 @@ h2o_rangeclient_t *h2o_rangeclient_create(h2o_httpclient_connection_pool_t *conn
   client->buf = h2o_mem_alloc_pool(client->mempool, char, 64);
   client->range_header = h2o_mem_alloc_pool(client->mempool, h2o_header_t, 1);
   client->is_closed = 0;
+  client->range.received = 0;
+  client->bw_sampler = h2o_mem_alloc_pool(client->mempool, h2o_bandwidth_sampler_t, 1);
+  h2o_mem_set_secure(client->bw_sampler, 0, sizeof(h2o_bandwidth_sampler_t));
 
   if (fseeko(client->file, bytes_begin, SEEK_SET) < 0) {
     h2o_fatal("fseeko(client->file, %zu, SEEK_SET) failed", bytes_begin);

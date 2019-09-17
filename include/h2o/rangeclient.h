@@ -11,7 +11,19 @@ extern "C" {
 
 #include "h2o/httpclient.h"
 
+#define H2O_RANGECLIENT_NUM_BANDWIDTH_SAMPLES 5
+
+typedef struct st_h2o_bandwidth_sampler_t h2o_bandwidth_sampler_t;
 typedef struct st_h2o_rangeclient_t h2o_rangeclient_t;
+
+struct st_h2o_bandwidth_sampler_t {
+  size_t last_received;
+  uint64_t last_ack_time;
+//  int i_sample;
+//  size_t samples[H2O_RANGECLIENT_NUM_BANDWIDTH_SAMPLES]; // bytes/s
+  int skip_sample;
+  size_t bw;
+};
 
 struct st_h2o_rangeclient_t {
   h2o_mem_pool_t *mempool;
@@ -29,7 +41,10 @@ struct st_h2o_rangeclient_t {
     size_t begin;
     /* |end| can be zero, indicating that the file size is unknown */
     size_t end;
+    size_t received;
   } range;
+
+  h2o_bandwidth_sampler_t *bw_sampler;
 
   char is_closed;
 //    h2o_timer_t exit_deferred;
