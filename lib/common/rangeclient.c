@@ -86,7 +86,7 @@ static int parse_content_range(size_t *filezs, h2o_header_t *headers, size_t num
 
   sprintf(buf, "%.*s", (int) headers[i].value.len, headers[i].value.base);
 
-  if (sscanf(buf, "bytes %*zu-%*zu/%zu", filezs) < 1) {
+  if (sscanf(buf, "bytes %*u-%*u/%zu", filezs) < 1) {
     h2o_error_printf("can not read file size from headers\n");
     return -1;
   }
