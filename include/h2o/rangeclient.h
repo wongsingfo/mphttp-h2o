@@ -33,7 +33,7 @@ struct st_h2o_rangeclient_t {
 
   h2o_url_t *url_parsed;
   char *buf;
-  FILE *file;
+  int fd;
   h2o_header_t *range_header;
 
   /* bytes range: [begin, end) */

@@ -28,6 +28,26 @@ static int fd_can_write(int fd) {
   }
 }
 
+static size_t writen(int fd, const void *vptr, size_t n) {
+  size_t nleft;
+  ssize_t nwritten;
+  const char *ptr;
+  ptr = vptr;
+  nleft = n;
+  while (nleft > 0) {
+    if ((nwritten = write(fd, ptr, nleft)) <= 0) {
+      if (nwritten < 0 && errno == EINTR) {
+        nwritten = 0;
+      } else {
+        return -1;
+      }
+    }
+    nleft -= nwritten;
+    ptr += nwritten;
+  }
+  return n;
+}
+
 static void h2o_bandwidth_update(h2o_bandwidth_sampler_t *sampler, size_t new_bytes,
                                  int64_t now, size_t received) {
   if (sampler->last_ack_time == 0) {
@@ -92,9 +112,8 @@ static void h2o_rangclient_buffer_consume(h2o_rangeclient_t *client, h2o_buffer_
   if (cancel) {
     consume = remaining;
   }
-  fwrite(buf->bytes, 1, consume, client->file);
-  if (ferror(client->file) != 0) {
-    h2o_fatal("fwrite(buf->bytes, 1, *, client->file) failed");
+  if (writen(client->fd, buf->bytes, consume) < 0) {
+    h2o_fatal("write() failed: %s", strerror(errno));
   }
   client->range.received += consume;
   if (client->enable_cancel && cancel && !h2o_timer_is_linked(&client->cancel_timer)) {
@@ -131,7 +150,7 @@ static int on_body(h2o_httpclient_t *httpclient, const char *errstr) {
 
   if (errstr == h2o_httpclient_error_is_eos) {
     printf("done!\n");
-    fclose(client->file);
+    close(client->fd);
     client->is_closed = 1;
   }
   return 0;
@@ -269,15 +288,11 @@ h2o_rangeclient_t *h2o_rangeclient_create(h2o_httpclient_connection_pool_t *conn
   client->ctx = ctx;
   int default_permissions =
     S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
-  int fd;
-  if ((fd = open(save_to_file,
-                 O_WRONLY | O_CREAT | O_NONBLOCK | O_NOCTTY,
-                 default_permissions) < 0)) {
+
+  client->fd = open(save_to_file, O_WRONLY | O_CREAT, default_permissions);
+  if (client->fd < 0) {
     h2o_fatal("open(%s) failed %s", save_to_file, strerror(errno));
   }
-  close(fd);
-
-  client->file = fopen(save_to_file, "rb+");
   client->url_parsed = h2o_mem_alloc_pool(client->mempool, h2o_url_t, 1);
   h2o_url_copy(client->mempool, client->url_parsed, url_parsed);
   client->range.begin = bytes_begin;
@@ -291,8 +306,8 @@ h2o_rangeclient_t *h2o_rangeclient_create(h2o_httpclient_connection_pool_t *conn
   client->bw_sampler = h2o_mem_alloc_pool(client->mempool, h2o_bandwidth_sampler_t, 1);
   h2o_mem_set_secure(client->bw_sampler, 0, sizeof(h2o_bandwidth_sampler_t));
 
-  if (fseeko(client->file, bytes_begin, SEEK_SET) < 0) {
-    h2o_fatal("fseeko(client->file, %zu, SEEK_SET) failed", bytes_begin);
+  if (lseek(client->fd, bytes_begin, SEEK_SET) < 0) {
+    h2o_fatal("lseek(client->file, %zu, SEEK_SET) failed", bytes_begin);
   }
   h2o_httpclient_connect(&client->httpclient,
                          client->mempool,
@@ -307,7 +322,6 @@ h2o_rangeclient_t *h2o_rangeclient_create(h2o_httpclient_connection_pool_t *conn
 void h2o_rangeclient_destroy(h2o_rangeclient_t *client) {
   h2o_mem_clear_pool(client->mempool);
   free(client->mempool);
-  fclose(client->file);
   free(client);
 }
 
