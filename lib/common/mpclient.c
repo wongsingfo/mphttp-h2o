@@ -73,7 +73,7 @@ static int assemble_url(h2o_mpclient_t *mp, char *request_path, h2o_url_t *url_p
   return 0;
 }
 
-int h2o_mpclient_fetch(h2o_mpclient_t *mp, char *request_path, size_t sz_hint, char *save_to_file) {
+int h2o_mpclient_fetch(h2o_mpclient_t *mp, char *request_path, char *save_to_file, size_t begin, size_t end) {
   // |h2o_rangeclient_create| will copy |url_parsed| and |buf|
   // we can allocate it on stack
   h2o_url_t url_parsed;
@@ -85,7 +85,7 @@ int h2o_mpclient_fetch(h2o_mpclient_t *mp, char *request_path, size_t sz_hint, c
   h2o_mpclient_update(mp);
   if (mp->rangeclient.running == NULL) {
     mp->rangeclient.running = h2o_rangeclient_create(mp->connpool, mp->ctx, &url_parsed,
-                                                     save_to_file, 0, sz_hint);
+                                                     save_to_file, begin, end);
     return 0;
   }
   // TODO: pipelining for |rangeclient.pending|

@@ -40,9 +40,15 @@ int main(int argc, char* argv[]) {
   h2o_mpclient_t *if1 = h2o_mpclient_create("https://10.100.1.2/", &ctx);
   h2o_mpclient_t *if2 = h2o_mpclient_create("https://10.100.2.2/", &ctx);
   h2o_mpclient_fetch(if1,
-                     "seq",
-                     1 * 1000,
-                     "./2M.bin");
+                     "2M",
+                     "./2M.bin",
+                     0,
+                     1024*1024);
+  h2o_mpclient_fetch(if2,
+                     "2M",
+                     "./2M.bin",
+                     1024*1024,
+                     2* 1024*1024);
 
   int rv;
   while (1) {

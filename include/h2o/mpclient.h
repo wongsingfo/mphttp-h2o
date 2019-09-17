@@ -24,7 +24,7 @@ struct st_h2o_mpclient_t {
 };
 
 h2o_mpclient_t* h2o_mpclient_create(char* request_url, h2o_httpclient_ctx_t *_ctx);
-int h2o_mpclient_fetch(h2o_mpclient_t* mp, char *request_url, size_t sz_hint, char *save_to_file);
+int h2o_mpclient_fetch(h2o_mpclient_t *mp, char *request_path, char *save_to_file, size_t begin, size_t end);
 
 #ifdef __cplusplus
 }
