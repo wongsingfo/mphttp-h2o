@@ -33,6 +33,9 @@ static int on_body(h2o_httpclient_t *httpclient, const char *errstr) {
   h2o_rangeclient_t *client = httpclient->data;
   h2o_buffer_t *buf = *httpclient->buf;
   fwrite(buf->bytes, 1, buf->size, client->file);
+  if (ferror(client->file) != 0) {
+    h2o_fatal("fwrite(buf->bytes, 1, buf->size, client->file) failed");
+  }
   // we can not use &buf for the first argument of |h2o_buffer_consume|
   h2o_buffer_consume(&(*httpclient->buf), buf->size);
 
@@ -165,7 +168,7 @@ h2o_rangeclient_t *h2o_rangeclient_create(h2o_httpclient_connection_pool_t *conn
   if ((fd = open(save_to_file,
                  O_WRONLY | O_CREAT | O_NONBLOCK | O_NOCTTY,
                  default_permissions) < 0)) {
-    h2o_fatal("open() failed");
+    h2o_fatal("open(%s) failed %s", save_to_file, strerror(errno));
   }
   close(fd);
 
@@ -179,7 +182,7 @@ h2o_rangeclient_t *h2o_rangeclient_create(h2o_httpclient_connection_pool_t *conn
   client->is_closed = 0;
 
   if (fseeko(client->file, bytes_begin, SEEK_SET) < 0) {
-    h2o_fatal("fseeko() failed");
+    h2o_fatal("fseeko(client->file, %zu, SEEK_SET) failed", bytes_begin);
   }
   h2o_httpclient_connect(&client->httpclient,
                          client->mempool,
