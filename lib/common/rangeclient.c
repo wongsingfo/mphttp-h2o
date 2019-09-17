@@ -124,6 +124,7 @@ static void h2o_rangclient_buffer_consume(h2o_rangeclient_t *client, h2o_buffer_
 static void cancel_stream_cb(h2o_timer_t *timer) {
   h2o_rangeclient_t *client = H2O_STRUCT_FROM_MEMBER(h2o_rangeclient_t, cancel_timer, timer);
   client->httpclient->cancel(client->httpclient);
+  close(client->fd);
   client->is_closed = 1;
 }
 
