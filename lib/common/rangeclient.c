@@ -99,7 +99,11 @@ static int on_body(h2o_httpclient_t *httpclient, const char *errstr) {
   // do sample before |h2o_buffer_consume|
   h2o_bandwidth_update(client->bw_sampler, buf->size,
                        h2o_now(client->ctx->loop), client->range.received);
-//  printf("%zu Kb/sec\n", h2o_bandwidth_get_bw(client->bw_sampler) / 1024);
+//  printf("%zu Kb/s ", h2o_bandwidth_get_bw(client->bw_sampler) / 1024);
+//  printf("remaining time: %ds, rtt: %dms",
+//         h2o_rangeclient_get_remaining_time(client) / 1000,
+//         h2o_rangeclient_get_ping_rtt(client));
+//  printf("\n");
 
   // we can not use &buf for the first argument of |h2o_buffer_consume|
   h2o_buffer_consume(&(*httpclient->buf), buf->size);
@@ -215,6 +219,21 @@ static h2o_httpclient_head_cb on_connect(h2o_httpclient_t *httpclient, const cha
   *proceed_req_cb = NULL;
 
   return on_head;
+}
+
+uint32_t h2o_rangeclient_get_remaining_time(h2o_rangeclient_t *client) {
+  uint64_t bw = h2o_bandwidth_get_bw(client->bw_sampler); // bytes/s
+  if (bw == 0) {
+    return UINT32_MAX;
+  }
+  size_t remaining = client->range.end - client->range.begin - client->range.received;
+  uint32_t rv = (uint64_t) remaining * 1000 / bw; // ms
+  return rv;
+}
+
+uint32_t h2o_rangeclient_get_ping_rtt(h2o_rangeclient_t *client) {
+  // TODO: add dynamic dispatch to http base class
+  return h2o_httpclient_get_ping_rtt(client->httpclient) / 1000;
 }
 
 h2o_rangeclient_t *h2o_rangeclient_create(h2o_httpclient_connection_pool_t *connpool,

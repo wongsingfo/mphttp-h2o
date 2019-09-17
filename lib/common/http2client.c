@@ -69,7 +69,7 @@ struct st_h2o_http2client_conn_t {
     h2o_timer_t ping_interval;
     struct timeval* ping_bucket;
     uint8_t ping_marker;
-    uint32_t ping_rtt;
+    uint32_t ping_rtt; // us
 
     struct {
         h2o_hpack_header_table_t header_table;
@@ -183,9 +183,9 @@ static uint32_t get_max_buffer_size(h2o_httpclient_ctx_t *ctx)
     return (uint32_t)sz;
 }
 
-uint32_t h2o_httpclient__h2_get_ping_rtt(h2o_httpclient__h2_conn_t *_conn) {
-  struct st_h2o_http2client_conn_t *conn = (void *)_conn;
-  return conn->ping_rtt;
+uint32_t h2o_httpclient_get_ping_rtt(h2o_httpclient_t *client) {
+  struct st_h2o_http2client_stream_t *stream = (void*) client;
+  return stream->conn->ping_rtt;
 }
 
 uint32_t h2o_httpclient__h2_get_max_concurrent_streams(h2o_httpclient__h2_conn_t *_conn)
