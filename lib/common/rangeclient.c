@@ -84,6 +84,30 @@ static size_t h2o_bandwidth_get_bw(h2o_bandwidth_sampler_t *sampler) {
 //  return 1.0 / sampler->bw;
 }
 
+// return nonzero if download finishes
+static void h2o_rangclient_buffer_consume(h2o_rangeclient_t *client, h2o_buffer_t *buf) {
+  size_t remaining = client->range.end - client->range.begin - client->range.received;
+  size_t consume = buf->size;
+  int cancel = buf->size >= remaining;
+  if (cancel) {
+    consume = remaining;
+  }
+  fwrite(buf->bytes, 1, consume, client->file);
+  if (ferror(client->file) != 0) {
+    h2o_fatal("fwrite(buf->bytes, 1, *, client->file) failed");
+  }
+  client->range.received += consume;
+  if (client->enable_cancel && cancel && !h2o_timer_is_linked(&client->cancel_timer)) {
+    h2o_timer_link(client->ctx->loop, 0, &client->cancel_timer);
+  }
+}
+
+static void cancel_stream_cb(h2o_timer_t *timer) {
+  h2o_rangeclient_t *client = H2O_STRUCT_FROM_MEMBER(h2o_rangeclient_t, cancel_timer, timer);
+  client->httpclient->cancel(client->httpclient);
+  client->is_closed = 1;
+}
+
 static int on_body(h2o_httpclient_t *httpclient, const char *errstr) {
   if (errstr && errstr != h2o_httpclient_error_is_eos) {
     h2o_error_printf("on_body failed");
@@ -91,11 +115,8 @@ static int on_body(h2o_httpclient_t *httpclient, const char *errstr) {
   }
   h2o_rangeclient_t *client = httpclient->data;
   h2o_buffer_t *buf = *httpclient->buf;
-  fwrite(buf->bytes, 1, buf->size, client->file);
-  if (ferror(client->file) != 0) {
-    h2o_fatal("fwrite(buf->bytes, 1, buf->size, client->file) failed");
-  }
-  client->range.received += buf->size;
+  h2o_rangclient_buffer_consume(client, buf);
+
   // do sample before |h2o_buffer_consume|
   h2o_bandwidth_update(client->bw_sampler, buf->size,
                        h2o_now(client->ctx->loop), client->range.received);
@@ -265,6 +286,8 @@ h2o_rangeclient_t *h2o_rangeclient_create(h2o_httpclient_connection_pool_t *conn
   client->range_header = h2o_mem_alloc_pool(client->mempool, h2o_header_t, 1);
   client->is_closed = 0;
   client->range.received = 0;
+  client->enable_cancel = 0;
+  h2o_timer_init(&client->cancel_timer, cancel_stream_cb);
   client->bw_sampler = h2o_mem_alloc_pool(client->mempool, h2o_bandwidth_sampler_t, 1);
   h2o_mem_set_secure(client->bw_sampler, 0, sizeof(h2o_bandwidth_sampler_t));
 
@@ -286,4 +309,17 @@ void h2o_rangeclient_destroy(h2o_rangeclient_t *client) {
   free(client->mempool);
   fclose(client->file);
   free(client);
+}
+
+void h2o_rangeclient_adjust_range_end(h2o_rangeclient_t *client, size_t end) {
+  assert(end > client->range.begin);
+  if (end >= client->range.begin + client->range.received) {
+    h2o_error_printf("warning: overwrite existing content. cancel the stream now");
+    h2o_timer_link(client->ctx->loop, 0, &client->cancel_timer);
+  } else {
+    if (end < client->range.end) {
+      client->enable_cancel = 1;
+    }
+    client->range.end = end;
+  }
 }

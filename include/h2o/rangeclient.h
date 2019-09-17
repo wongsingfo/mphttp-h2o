@@ -44,6 +44,9 @@ struct st_h2o_rangeclient_t {
     size_t received;
   } range;
 
+  int enable_cancel;
+  h2o_timer_t cancel_timer;
+
   h2o_bandwidth_sampler_t *bw_sampler;
 
   char is_closed;
@@ -58,6 +61,8 @@ void h2o_rangeclient_destroy(h2o_rangeclient_t *client);
 
 uint32_t h2o_rangeclient_get_remaining_time(h2o_rangeclient_t *client); // in ms
 uint32_t h2o_rangeclient_get_ping_rtt(h2o_rangeclient_t *client); // in ms
+
+void h2o_rangeclient_adjust_range_end(h2o_rangeclient_t *client, size_t end);
 
 #ifdef __cplusplus
 }
