@@ -25,6 +25,7 @@ struct st_h2o_mpclient_t {
 
 h2o_mpclient_t* h2o_mpclient_create(char* request_url, h2o_httpclient_ctx_t *_ctx);
 int h2o_mpclient_fetch(h2o_mpclient_t *mp, char *request_path, char *save_to_file, size_t begin, size_t end);
+void h2o_mpclient_reschedule(h2o_mpclient_t *mp1, h2o_mpclient_t *mp2);
 
 #ifdef __cplusplus
 }

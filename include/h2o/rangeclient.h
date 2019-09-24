@@ -31,6 +31,7 @@ struct st_h2o_rangeclient_t {
   h2o_httpclient_ctx_t *ctx;
   h2o_httpclient_connection_pool_t *connpool;
   h2o_httpclient_t *httpclient;
+  char *save_to_file;
 
   h2o_url_t *url_parsed;
   char *buf;

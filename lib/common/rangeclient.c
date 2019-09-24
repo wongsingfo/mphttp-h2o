@@ -300,6 +300,7 @@ h2o_rangeclient_create(h2o_httpclient_connection_pool_t *connpool, void *data, h
   }
   client->url_parsed = h2o_mem_alloc_pool(client->mempool, h2o_url_t, 1);
   h2o_url_copy(client->mempool, client->url_parsed, url_parsed);
+  client->save_to_file = save_to_file;
   client->range.begin = bytes_begin;
   client->range.end = bytes_end;
   client->buf = h2o_mem_alloc_pool(client->mempool, char, 64);

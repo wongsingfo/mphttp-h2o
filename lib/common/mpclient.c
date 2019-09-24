@@ -92,6 +92,37 @@ int h2o_mpclient_fetch(h2o_mpclient_t *mp, char *request_path, char *save_to_fil
   return -1;
 }
 
+static size_t h2o_mpclient_guess_bw(h2o_mpclient_t *mp) {
+  if (mp->rangeclient.running) {
+    return h2o_rangeclient_get_bw(mp->rangeclient.running);
+  }
+  // TODO: reuse bandwidth history
+  return 1024 * 64; // 64 Kb / s
+}
+
+void h2o_mpclient_reschedule(h2o_mpclient_t *mp1, h2o_mpclient_t *mp2) {
+  assert(mp1 != mp2 && "scheduling should be between two different clients");
+  h2o_rangeclient_t *client1 = mp2->rangeclient.running;
+  h2o_rangeclient_t *client2 = mp1->rangeclient.pending;
+  assert(client2 == NULL);
+  assert(client1 != NULL);
+
+  size_t bw1 = h2o_mpclient_guess_bw(mp1);
+  size_t bw2 = h2o_mpclient_guess_bw(mp2);
+
+  size_t remaining = client1->range.end - client1->range.begin - client1->range.received;
+
+  // take care of the overflow
+  size_t data2 = (uint64_t) remaining * bw2 / (bw1 + bw2);
+  h2o_rangeclient_adjust_range_end(client1, client1->range.end - data2);
+
+  mp2->rangeclient.pending =
+    h2o_rangeclient_create(mp2->connpool, NULL, mp2->ctx, client1->url_parsed,
+                           client1->save_to_file, client1->range.end - data2, client1->range.end);
+
+  h2o_mpclient_update(mp2);
+}
+
 void h2o_mpclient_destroy(h2o_mpclient_t* mp) {
   free(mp->connpool);
   free(mp);
