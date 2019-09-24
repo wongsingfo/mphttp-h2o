@@ -60,6 +60,7 @@ h2o_rangeclient_create(h2o_httpclient_connection_pool_t *connpool, void *data, h
 void h2o_rangeclient_destroy(h2o_rangeclient_t *client);
 
 uint32_t h2o_rangeclient_get_remaining_time(h2o_rangeclient_t *client); // in ms
+size_t h2o_rangeclient_get_bw(h2o_rangeclient_t *client); // bytes / s
 uint32_t h2o_rangeclient_get_ping_rtt(h2o_rangeclient_t *client); // in ms
 
 void h2o_rangeclient_adjust_range_end(h2o_rangeclient_t *client, size_t end);

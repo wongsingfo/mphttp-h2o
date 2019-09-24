@@ -104,6 +104,10 @@ static size_t h2o_bandwidth_get_bw(h2o_bandwidth_sampler_t *sampler) {
 //  return 1.0 / sampler->bw;
 }
 
+size_t h2o_rangeclient_get_bw(h2o_rangeclient_t *client) {
+  return h2o_bandwidth_get_bw(client->bw_sampler);
+}
+
 // return nonzero if download finishes
 static void h2o_rangclient_buffer_consume(h2o_rangeclient_t *client, h2o_buffer_t *buf) {
   size_t remaining = client->range.end - client->range.begin - client->range.received;
