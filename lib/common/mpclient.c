@@ -84,7 +84,7 @@ int h2o_mpclient_fetch(h2o_mpclient_t *mp, char *request_path, char *save_to_fil
 
   h2o_mpclient_update(mp);
   if (mp->rangeclient.running == NULL) {
-    mp->rangeclient.running = h2o_rangeclient_create(mp->connpool, mp->ctx, &url_parsed,
+    mp->rangeclient.running = h2o_rangeclient_create(mp->connpool, NULL, mp->ctx, &url_parsed,
                                                      save_to_file, begin, end);
     return 0;
   }

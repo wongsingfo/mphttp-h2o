@@ -277,15 +277,15 @@ uint32_t h2o_rangeclient_get_ping_rtt(h2o_rangeclient_t *client) {
   return h2o_httpclient_get_ping_rtt(client->httpclient) / 1000;
 }
 
-h2o_rangeclient_t *h2o_rangeclient_create(h2o_httpclient_connection_pool_t *connpool,
-                                          h2o_httpclient_ctx_t *ctx,
-                                          h2o_url_t *url_parsed, char *save_to_file,
-                                          size_t bytes_begin, size_t bytes_end) {
+h2o_rangeclient_t *
+h2o_rangeclient_create(h2o_httpclient_connection_pool_t *connpool, void *data, h2o_httpclient_ctx_t *ctx,
+                       h2o_url_t *url_parsed, char *save_to_file, size_t bytes_begin, size_t bytes_end) {
   assert(connpool != NULL);
 
   h2o_rangeclient_t *client = h2o_mem_alloc(sizeof(h2o_rangeclient_t));
   client->mempool = h2o_mem_alloc(sizeof(h2o_mem_pool_t));
   h2o_mem_init_pool(client->mempool);
+  client->data = data;
   client->ctx = ctx;
   int default_permissions =
     S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
