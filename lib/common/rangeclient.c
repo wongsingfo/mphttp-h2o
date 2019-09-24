@@ -58,7 +58,7 @@ static void h2o_bandwidth_update(h2o_bandwidth_sampler_t *sampler, size_t new_by
   }
   int64_t time_delta = now - sampler->last_ack_time;
   size_t received_delta = received - sampler->last_received;
-  if (time_delta == 0 || received_delta < H2O_RANGECLIENT_MIN_RECEIVE_CHUNK) {
+  if (time_delta == 0 || received_delta < H2O_RANGECLIENT_MIN_RECEIVE_CHUNK || time_delta < 1) {
     return;
   }
 
@@ -86,7 +86,7 @@ static void h2o_bandwidth_update(h2o_bandwidth_sampler_t *sampler, size_t new_by
     sampler->bw = sample;
     return;
   }
-  sampler->bw = sampler->bw * 0.7 + sample * 0.3;
+  sampler->bw = sampler->bw * 0.9 + sample * 0.1;
 
 
   sampler->last_ack_time = now;

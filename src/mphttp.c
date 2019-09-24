@@ -18,7 +18,7 @@ int main(int argc, char* argv[]) {
     timeout,                                 /* first_byte_timeout */
     NULL,                                    /* websocket_timeout */
     0,                                       /* keepalive_timeout */
-    H2O_SOCKET_INITIAL_INPUT_BUFFER_SIZE * 2 /* max_buffer_size */
+    65535                                    /* max_buffer_size */
   };
   ctx.http2.ratio = 100;
 
