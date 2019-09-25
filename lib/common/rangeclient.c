@@ -133,6 +133,12 @@ static void cancel_stream_cb(h2o_timer_t *timer) {
   client->is_closed = 1;
 }
 
+static void log_progress(h2o_rangeclient_t *client) {
+  fprintf(client->logger, "%zu %zu\n",
+          h2o_time_elapsed_nanosec(client->ctx->loop) / 1000000,        // ms
+          (client->range.begin + client->range.received) / 1024);  // bytes
+}
+
 static int on_body(h2o_httpclient_t *httpclient, const char *errstr) {
   if (errstr && errstr != h2o_httpclient_error_is_eos) {
     h2o_error_printf("on_body failed");
@@ -150,20 +156,22 @@ static int on_body(h2o_httpclient_t *httpclient, const char *errstr) {
 //         h2o_rangeclient_get_remaining_time(client) / 1000,
 //         h2o_rangeclient_get_ping_rtt(client));
 //  printf("\n");
-  fprintf(client->logger, "%zu %zu\n",
-          h2o_time_elapsed_nanosec(client->ctx->loop) / 1000000,        // ms
-          (client->range.begin + client->range.received) / 1024);  // bytes
+  log_progress(client);
 
   // we can not use &buf for the first argument of |h2o_buffer_consume|
   h2o_buffer_consume(&(*httpclient->buf), buf->size);
 
   if (h2o_rangeclient_get_remaining_time(client) <= h2o_rangeclient_get_ping_rtt(client)) {
-    client->cb.on_mostly_complete(client);
+    if (client->cb.on_mostly_complete != NULL) {
+      client->cb.on_mostly_complete(client);
+      client->cb.on_mostly_complete = NULL;
+    }
   }
 
   if (errstr == h2o_httpclient_error_is_eos) {
     printf("done!\n");
     close(client->fd);
+    fflush(client->logger);
     client->is_closed = 1;
   }
   return 0;
@@ -325,6 +333,7 @@ h2o_rangeclient_create(h2o_httpclient_connection_pool_t *connpool, void *data, F
   if (lseek(client->fd, bytes_begin, SEEK_SET) < 0) {
     h2o_fatal("lseek(client->file, %zu, SEEK_SET) failed", bytes_begin);
   }
+  log_progress(client);
   h2o_httpclient_connect(&client->httpclient,
                          client->mempool,
                          client,
@@ -343,8 +352,8 @@ void h2o_rangeclient_destroy(h2o_rangeclient_t *client) {
 
 void h2o_rangeclient_adjust_range_end(h2o_rangeclient_t *client, size_t end) {
   assert(end > client->range.begin);
-  if (end >= client->range.begin + client->range.received) {
-    h2o_error_printf("warning: overwrite existing content. cancel the stream now");
+  if (end < client->range.begin + client->range.received) {
+    h2o_error_printf("warning: overwrite existing content. cancel the stream now\n");
     h2o_timer_link(client->ctx->loop, 0, &client->cancel_timer);
   } else {
     if (end < client->range.end) {

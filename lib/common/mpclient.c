@@ -123,33 +123,34 @@ static size_t h2o_mpclient_guess_bw(h2o_mpclient_t *mp) {
   return 1024 * 64; // 64 Kb / s
 }
 
-void h2o_mpclient_reschedule(h2o_mpclient_t *mp1, h2o_mpclient_t *mp2) {
-  assert(mp1 != mp2 && "scheduling should be between two different clients");
-  h2o_rangeclient_t *client1 = mp2->rangeclient.running;
-  h2o_rangeclient_t *client2 = mp1->rangeclient.pending;
-  assert(client2 == NULL);
-  assert(client1 != NULL);
+void h2o_mpclient_reschedule(h2o_mpclient_t *mp_idle, h2o_mpclient_t *mp_busy) {
+  assert(mp_idle != mp_busy && "scheduling should be between two different clients");
+  h2o_rangeclient_t *client_busy = mp_busy->rangeclient.running;
+  h2o_rangeclient_t *client_idle = mp_idle->rangeclient.pending;
+  assert(client_busy != NULL);
+  assert(client_idle == NULL);
 
   // TODO: move the constant to |ctx|
-  if (h2o_rangeclient_get_remaining_time(client1) < 100 /* ms */) {
+  if (h2o_rangeclient_get_remaining_time(client_busy) < 100 /* ms */) {
     return;
   }
 
-  size_t bw1 = h2o_mpclient_guess_bw(mp1);
-  size_t bw2 = h2o_mpclient_guess_bw(mp2);
+  size_t bw_idle = h2o_mpclient_guess_bw(mp_idle);
+  size_t bw_busy = h2o_mpclient_guess_bw(mp_busy);
 
-  size_t remaining = client1->range.end - client1->range.begin - client1->range.received;
+  size_t remaining = client_busy->range.end - client_busy->range.begin - client_busy->range.received;
 
   // take care of the overflow
-  size_t data2 = (uint64_t) remaining * bw2 / (bw1 + bw2);
-  h2o_rangeclient_adjust_range_end(client1, client1->range.end - data2);
+  size_t data_idle = (uint64_t) remaining * bw_idle / (bw_idle + bw_busy);
+  size_t data_end = client_busy->range.end;
+  h2o_rangeclient_adjust_range_end(client_busy, client_busy->range.end - data_idle);
 
-  mp2->rangeclient.pending =
-    h2o_rangeclient_create(mp2->connpool, mp2, mp2->data_log, mp2->ctx, client1->url_parsed,
-                           client1->save_to_file, client1->range.end - data2,
-                           client1->range.end);
+  mp_idle->rangeclient.pending =
+    h2o_rangeclient_create(mp_idle->connpool, mp_idle, mp_idle->data_log, mp_idle->ctx,
+                           client_busy->url_parsed, client_busy->save_to_file,
+                           data_end - data_idle, data_end);
 
-  h2o_mpclient_update(mp2);
+  h2o_mpclient_update(mp_idle);
 }
 
 void h2o_mpclient_destroy(h2o_mpclient_t* mp) {
