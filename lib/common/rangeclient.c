@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <h2o/rangeclient.h>
 #include "h2o/memory.h"
 
 #define H2O_RANGECLIENT_NUM_SAMPLE_SKIPPED 0
@@ -149,6 +150,9 @@ static int on_body(h2o_httpclient_t *httpclient, const char *errstr) {
 //         h2o_rangeclient_get_remaining_time(client) / 1000,
 //         h2o_rangeclient_get_ping_rtt(client));
 //  printf("\n");
+  fprintf(client->logger, "%zu %zu\n",
+          h2o_time_elapsed_nanosec(client->ctx->loop) / 1000000,        // ms
+          (client->range.begin + client->range.received) / 1024);  // bytes
 
   // we can not use &buf for the first argument of |h2o_buffer_consume|
   h2o_buffer_consume(&(*httpclient->buf), buf->size);
@@ -286,14 +290,16 @@ uint32_t h2o_rangeclient_get_ping_rtt(h2o_rangeclient_t *client) {
 }
 
 h2o_rangeclient_t *
-h2o_rangeclient_create(h2o_httpclient_connection_pool_t *connpool, void *data, h2o_httpclient_ctx_t *ctx,
-                       h2o_url_t *url_parsed, char *save_to_file, size_t bytes_begin, size_t bytes_end) {
+h2o_rangeclient_create(h2o_httpclient_connection_pool_t *connpool, void *data, FILE *logger,
+                       h2o_httpclient_ctx_t *ctx, h2o_url_t *url_parsed, char *save_to_file,
+                       size_t bytes_begin, size_t bytes_end) {
   assert(connpool != NULL);
 
   h2o_rangeclient_t *client = h2o_mem_alloc(sizeof(h2o_rangeclient_t));
   client->mempool = h2o_mem_alloc(sizeof(h2o_mem_pool_t));
   h2o_mem_init_pool(client->mempool);
   client->data = data;
+  client->logger = logger;
   client->ctx = ctx;
   int default_permissions =
     S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;

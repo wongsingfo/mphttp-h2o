@@ -23,6 +23,8 @@ struct st_h2o_mpclient_t {
   h2o_httpclient_connection_pool_t *connpool;
 
   h2o_mpclient_t* (*on_reschedule)(h2o_mpclient_t*);
+
+  FILE* data_log; // owned
 };
 
 // TODO: typedef callback

@@ -36,6 +36,7 @@ struct st_h2o_rangeclient_t {
   h2o_url_t *url_parsed;
   char *buf;
   int fd;
+  FILE *logger;
   h2o_header_t *range_header;
 
   /* bytes range: [begin, end) */
@@ -60,8 +61,9 @@ struct st_h2o_rangeclient_t {
 };
 
 h2o_rangeclient_t *
-h2o_rangeclient_create(h2o_httpclient_connection_pool_t *connpool, void *data, h2o_httpclient_ctx_t *ctx,
-                       h2o_url_t *url_parsed, char *save_to_file, size_t bytes_begin, size_t bytes_end);
+h2o_rangeclient_create(h2o_httpclient_connection_pool_t *connpool, void *data, FILE *logger,
+                       h2o_httpclient_ctx_t *ctx, h2o_url_t *url_parsed, char *save_to_file,
+                       size_t bytes_begin, size_t bytes_end);
 void h2o_rangeclient_destroy(h2o_rangeclient_t *client);
 
 uint32_t h2o_rangeclient_get_remaining_time(h2o_rangeclient_t *client); // in ms

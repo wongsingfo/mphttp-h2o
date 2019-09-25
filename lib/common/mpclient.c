@@ -23,6 +23,12 @@ h2o_mpclient_t* h2o_mpclient_create(char* request_url, h2o_httpclient_ctx_t *_ct
   mp->connpool = h2o_mem_alloc(sizeof(h2o_httpclient_connection_pool_t));
   mp->url_prefix = request_url;
   mp->on_reschedule = on_reschedule;
+
+  char buf[16];
+  static int data_log_count = 0;
+  snprintf(buf, 16, "%d.dat", ++data_log_count);
+  mp->data_log = fopen(buf, "w");
+
   h2o_socketpool_t *sockpool = h2o_mem_alloc(sizeof(*sockpool));
   h2o_socketpool_target_t *target = h2o_socketpool_create_target(&url_parsed, NULL);
   h2o_socketpool_init_specific(sockpool, 10, &target, 1, NULL);
@@ -100,7 +106,8 @@ int h2o_mpclient_fetch(h2o_mpclient_t *mp, char *request_path, char *save_to_fil
 
   h2o_mpclient_update(mp);
   if (mp->rangeclient.running == NULL) {
-    mp->rangeclient.running = h2o_rangeclient_create(mp->connpool, mp, mp->ctx, &url_parsed,
+    mp->rangeclient.running = h2o_rangeclient_create(mp->connpool, mp, mp->data_log,
+                                                     mp->ctx, &url_parsed,
                                                      save_to_file, begin, end);
     mp->rangeclient.running->cb.on_mostly_complete = on_mostly_complete;
     return 0;
@@ -138,8 +145,9 @@ void h2o_mpclient_reschedule(h2o_mpclient_t *mp1, h2o_mpclient_t *mp2) {
   h2o_rangeclient_adjust_range_end(client1, client1->range.end - data2);
 
   mp2->rangeclient.pending =
-    h2o_rangeclient_create(mp2->connpool, mp2, mp2->ctx, client1->url_parsed,
-                           client1->save_to_file, client1->range.end - data2, client1->range.end);
+    h2o_rangeclient_create(mp2->connpool, mp2, mp2->data_log, mp2->ctx, client1->url_parsed,
+                           client1->save_to_file, client1->range.end - data2,
+                           client1->range.end);
 
   h2o_mpclient_update(mp2);
 }
@@ -147,4 +155,8 @@ void h2o_mpclient_reschedule(h2o_mpclient_t *mp1, h2o_mpclient_t *mp2) {
 void h2o_mpclient_destroy(h2o_mpclient_t* mp) {
   free(mp->connpool);
   free(mp);
+  if (mp->data_log) {
+    fclose(mp->data_log);
+    mp->data_log = NULL;
+  }
 }
