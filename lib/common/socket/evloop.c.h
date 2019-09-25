@@ -470,6 +470,7 @@ h2o_evloop_t *create_evloop(size_t sz)
     memset(loop, 0, sz);
     loop->_statechanged.tail_ref = &loop->_statechanged.head;
     update_now(loop);
+    loop->_start_time_nanosec = loop->_now_nanosec;
     /* 3 levels * 32-slots => 1 second goes into 2nd, becomes O(N) above approx. 31 seconds */
     loop->_timeouts = h2o_timerwheel_create(3, loop->_now_millisec);
 

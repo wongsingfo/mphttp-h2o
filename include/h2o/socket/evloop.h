@@ -44,6 +44,7 @@ typedef struct st_h2o_evloop_t {
     } _statechanged;
     uint64_t _now_millisec;
     uint64_t _now_nanosec;
+    uint64_t _start_time_nanosec;
     struct timeval _tv_at;
     h2o_timerwheel_t *_timeouts;
     h2o_sliding_counter_t exec_time_counter;
@@ -86,6 +87,10 @@ static inline uint64_t h2o_now(h2o_evloop_t *loop)
 static inline uint64_t h2o_now_nanosec(h2o_evloop_t *loop)
 {
     return loop->_now_nanosec;
+}
+
+static inline uint64_t h2o_time_elapsed_nanosec(h2o_evloop_t *loop) {
+  return loop->_now_nanosec - loop->_start_time_nanosec;
 }
 
 static inline uint64_t h2o_evloop_get_execution_time(h2o_evloop_t *loop)
