@@ -21,9 +21,13 @@ struct st_h2o_mpclient_t {
   char *url_prefix;
   h2o_httpclient_ctx_t *ctx;
   h2o_httpclient_connection_pool_t *connpool;
+
+  h2o_mpclient_t* (*on_reschedule)(h2o_mpclient_t*);
 };
 
-h2o_mpclient_t* h2o_mpclient_create(char* request_url, h2o_httpclient_ctx_t *_ctx);
+// TODO: typedef callback
+h2o_mpclient_t* h2o_mpclient_create(char *request_url, h2o_httpclient_ctx_t *_ctx,
+                                    h2o_mpclient_t *(*on_reschedule)(h2o_mpclient_t *));
 int h2o_mpclient_fetch(h2o_mpclient_t *mp, char *request_path, char *save_to_file, size_t begin, size_t end);
 void h2o_mpclient_reschedule(h2o_mpclient_t *mp1, h2o_mpclient_t *mp2);
 

@@ -7,6 +7,15 @@
 #include "h2o.h"
 #include "h2o/mpclient.h"
 
+h2o_mpclient_t *if1;
+h2o_mpclient_t *if2;
+
+static h2o_mpclient_t *on_reschedule(h2o_mpclient_t* mp) {
+  if (mp == if1) return if2;
+  if (mp == if2) return if1;
+  return NULL;
+}
+
 int main(int argc, char* argv[]) {
   const uint64_t timeout = 10 * 1000; /* ms */
   h2o_multithread_receiver_t getaddr_receiver;
@@ -37,8 +46,8 @@ int main(int argc, char* argv[]) {
   queue = h2o_multithread_create_queue(ctx.loop);
   h2o_multithread_register_receiver(queue, ctx.getaddr_receiver, h2o_hostinfo_getaddr_receiver);
 
-  h2o_mpclient_t *if1 = h2o_mpclient_create("https://10.100.1.2/", &ctx);
-  h2o_mpclient_t *if2 = h2o_mpclient_create("https://10.100.2.2/", &ctx);
+  if1 = h2o_mpclient_create("https://10.100.1.2/", &ctx, on_reschedule);
+  if2 = h2o_mpclient_create("https://10.100.2.2/", &ctx, on_reschedule);
   h2o_mpclient_fetch(if1,
                      "2M",
                      "./2M.bin",

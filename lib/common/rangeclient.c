@@ -153,6 +153,10 @@ static int on_body(h2o_httpclient_t *httpclient, const char *errstr) {
   // we can not use &buf for the first argument of |h2o_buffer_consume|
   h2o_buffer_consume(&(*httpclient->buf), buf->size);
 
+  if (h2o_rangeclient_get_remaining_time(client) <= h2o_rangeclient_get_ping_rtt(client)) {
+    client->cb.on_mostly_complete(client);
+  }
+
   if (errstr == h2o_httpclient_error_is_eos) {
     printf("done!\n");
     close(client->fd);

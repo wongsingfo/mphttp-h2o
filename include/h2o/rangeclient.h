@@ -53,6 +53,10 @@ struct st_h2o_rangeclient_t {
 
   char is_closed;
 //    h2o_timer_t exit_deferred;
+
+  struct {
+    void (*on_mostly_complete)(h2o_rangeclient_t*);
+  }cb;
 };
 
 h2o_rangeclient_t *
