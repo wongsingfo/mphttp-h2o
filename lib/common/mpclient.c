@@ -60,12 +60,7 @@ h2o_mpclient_t* h2o_mpclient_create(char* request_url, h2o_httpclient_ctx_t *_ct
 void h2o_mpclient_update(h2o_mpclient_t* mp) {
   if (mp->rangeclient.running == NULL) {
     mp->rangeclient.running = mp->rangeclient.pending;
-    return;
-  }
-  if (mp->rangeclient.running->is_closed) {
-    h2o_rangeclient_destroy(mp->rangeclient.running);
-    mp->rangeclient.running = NULL;
-    h2o_mpclient_update(mp);
+    mp->rangeclient.pending = NULL;
     return;
   }
   // TODO: put the rangeclient with larger chunk to |rangeclient.running|
@@ -95,6 +90,24 @@ static void on_mostly_complete(h2o_rangeclient_t *client) {
   h2o_mpclient_reschedule(mp, mp2);
 }
 
+static void on_complete(h2o_rangeclient_t *client) {
+  // TODO: add logger
+  printf("on_complete() at %zums\n",
+    h2o_time_elapsed_nanosec(client->ctx->loop) / 1000000);
+  h2o_mpclient_t *mp = (h2o_mpclient_t*) client->data;
+  fflush(mp->data_log);
+  assert(client->is_closed);
+  if (client == mp->rangeclient.running) {
+    mp->rangeclient.running = NULL;
+  } else if (client == mp->rangeclient.pending) {
+    mp->rangeclient.pending = NULL;
+  } else {
+    printf("What a Terrible Failure\n");
+  }
+  h2o_rangeclient_destroy(client);
+  h2o_mpclient_update(mp);
+}
+
 int h2o_mpclient_fetch(h2o_mpclient_t *mp, char *request_path, char *save_to_file, size_t begin, size_t end) {
   // |h2o_rangeclient_create| will copy |url_parsed| and |buf|
   // we can allocate it on stack
@@ -110,6 +123,7 @@ int h2o_mpclient_fetch(h2o_mpclient_t *mp, char *request_path, char *save_to_fil
                                                      mp->ctx, &url_parsed,
                                                      save_to_file, begin, end);
     mp->rangeclient.running->cb.on_mostly_complete = on_mostly_complete;
+    mp->rangeclient.running->cb.on_complete = on_complete;
     return 0;
   }
   return -1;
@@ -120,6 +134,7 @@ static size_t h2o_mpclient_guess_bw(h2o_mpclient_t *mp) {
     return h2o_rangeclient_get_bw(mp->rangeclient.running);
   }
   // TODO: reuse bandwidth history
+  printf("guess!\n");
   return 1024 * 64; // 64 Kb / s
 }
 
@@ -127,7 +142,10 @@ void h2o_mpclient_reschedule(h2o_mpclient_t *mp_idle, h2o_mpclient_t *mp_busy) {
   assert(mp_idle != mp_busy && "scheduling should be between two different clients");
   h2o_rangeclient_t *client_busy = mp_busy->rangeclient.running;
   h2o_rangeclient_t *client_idle = mp_idle->rangeclient.pending;
-  assert(client_busy != NULL);
+  if (client_busy == NULL) {
+    printf("no need for rescheduling");
+    return;
+  }
   assert(client_idle == NULL);
 
   // TODO: move the constant to |ctx|
@@ -145,10 +163,13 @@ void h2o_mpclient_reschedule(h2o_mpclient_t *mp_idle, h2o_mpclient_t *mp_busy) {
   size_t data_end = client_busy->range.end;
   h2o_rangeclient_adjust_range_end(client_busy, client_busy->range.end - data_idle);
 
+  // TODO: refactor the creation of rangeclient
   mp_idle->rangeclient.pending =
     h2o_rangeclient_create(mp_idle->connpool, mp_idle, mp_idle->data_log, mp_idle->ctx,
                            client_busy->url_parsed, client_busy->save_to_file,
                            data_end - data_idle, data_end);
+  mp_idle->rangeclient.pending->cb.on_mostly_complete = on_mostly_complete;
+  mp_idle->rangeclient.pending->cb.on_complete = on_complete;
 
   h2o_mpclient_update(mp_idle);
 }

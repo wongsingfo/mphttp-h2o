@@ -130,7 +130,8 @@ static void cancel_stream_cb(h2o_timer_t *timer) {
   h2o_rangeclient_t *client = H2O_STRUCT_FROM_MEMBER(h2o_rangeclient_t, cancel_timer, timer);
   client->httpclient->cancel(client->httpclient);
   close(client->fd);
-  client->is_closed = 1;
+  client->is_closed = 1; // TODO : remove this field
+  client->cb.on_complete(client);
 }
 
 static void log_progress(h2o_rangeclient_t *client) {
@@ -173,6 +174,7 @@ static int on_body(h2o_httpclient_t *httpclient, const char *errstr) {
     close(client->fd);
     fflush(client->logger);
     client->is_closed = 1;
+    client->cb.on_complete(client);
   }
   return 0;
 }
