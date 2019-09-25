@@ -82,12 +82,7 @@ static void on_mostly_complete(h2o_rangeclient_t *client) {
   if (mp->rangeclient.pending != NULL) {
     return;
   }
-  h2o_mpclient_t *mp2 = mp->on_reschedule(mp);
-  if (mp2 == NULL) {
-    return;
-  }
-
-  h2o_mpclient_reschedule(mp, mp2);
+  h2o_mpclient_reschedule(mp);
 }
 
 static void on_complete(h2o_rangeclient_t *client) {
@@ -138,7 +133,9 @@ static size_t h2o_mpclient_guess_bw(h2o_mpclient_t *mp) {
   return 1024 * 64; // 64 Kb / s
 }
 
-void h2o_mpclient_reschedule(h2o_mpclient_t *mp_idle, h2o_mpclient_t *mp_busy) {
+void h2o_mpclient_reschedule(h2o_mpclient_t *mp_idle) {
+  h2o_mpclient_t *mp_busy = mp_idle->on_reschedule(mp_idle);
+  if (mp_busy == NULL) return;
   assert(mp_idle != mp_busy && "scheduling should be between two different clients");
   h2o_rangeclient_t *client_busy = mp_busy->rangeclient.running;
   h2o_rangeclient_t *client_idle = mp_idle->rangeclient.pending;
@@ -152,6 +149,8 @@ void h2o_mpclient_reschedule(h2o_mpclient_t *mp_idle, h2o_mpclient_t *mp_busy) {
   if (h2o_rangeclient_get_remaining_time(client_busy) < 100 /* ms */) {
     return;
   }
+
+  // TODO: if remaining_time < guessed_rtt : return
 
   size_t bw_idle = h2o_mpclient_guess_bw(mp_idle);
   size_t bw_busy = h2o_mpclient_guess_bw(mp_busy);

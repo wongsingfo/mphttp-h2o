@@ -306,6 +306,7 @@ h2o_rangeclient_create(h2o_httpclient_connection_pool_t *connpool, void *data, F
   assert(connpool != NULL);
 
   h2o_rangeclient_t *client = h2o_mem_alloc(sizeof(h2o_rangeclient_t));
+  h2o_mem_set_secure(client, 0, sizeof(h2o_rangeclient_t));
   client->mempool = h2o_mem_alloc(sizeof(h2o_mem_pool_t));
   h2o_mem_init_pool(client->mempool);
   client->data = data;
