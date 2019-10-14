@@ -1,5 +1,7 @@
 # CompNet.Lab3: Multipath HTTP/2
 
+Due: Dec 9 23:59:59
+
 [TOC]
 
 ## Introduction
@@ -59,7 +61,7 @@ The aforementioned configuration is just an example. When testing your downloade
 
 ## Tasks
 
-### Programming Task (50%)
+### Programming Task (30%)
 
 Your downloader is supposed to work after receiving these arguments:
 
@@ -75,7 +77,7 @@ $ ./h2o-mphttp 10.100.1.2 -o dir1/dir2/hello.flv 10.100.2.2 10.100.3.2
 $ ./h2o-mphttp -s 2097152 10.100.3.2 10.100.1.2 10.100.2.2 -o dir1/dir2/hello.flv
 ```
 
-We recommend [getopt()](http://man7.org/linux/man-pages/man3/getopt.3.html) here, a function parses the command-line arguments.
+We recommend [getopt()](http://man7.org/linux/man-pages/man3/getopt.3.html) here, a function that parses the command-line arguments.
 
 #### Test and Evaluation
 
@@ -88,21 +90,22 @@ The tasks below are optional.
 - HTTP/1.1 Fallback: Although HTTP/2 is getting increasingly popular, many of today’s web servers still only support HTTP/1.1. Design your downloader to be compatible with HTTP/1.1 servers. Specifically, in this lab, the downloader should be capable of scheduling an HTTP/1.1 server and two HTTP/2 servers to download a file.
 - Data Consistency Check: In the real world, content from two CDN servers might be different. One possible reason for the difference is that middle-boxes in the network may cache the content data. If one of the paths is cached while the other is not, you may receive inconsistent data after CDN servers update their content. Design your downloader to report an error if such a situation arises.
 
-### Writing Task (20%)
+### Writing Task (30%)
 
 Describe your implementation:
 
 - How do you estimate the bandwidth and the delay of a path?
 - How do you assign jobs to the three paths?
+- What features (pipelining, eliminating tail byes, etc.) do you implement? And how do you implement them? You are encouraged to write down other design aspects of your implementation.
 
-In addition to the questions above, you are encouraged to write down other design aspects of your implementation. Comments and ideas on the multipath HTTP solution are also welcomed!
+In addition to the questions above, Comments and ideas on the multipath HTTP solution are also welcomed!
 
-### Drawing Task (30%)
+### Drawing Task (40%)
 
 You are required to draw some figures to prove that your downloader does work: 
 
 - under static network conditions
-- under varying bandwidth conditions (you may use the traces provided in Mahimahi)
+- under varying bandwidth conditions (you can use the traces provided by Mahimahi)
 - with a high-bandwidth path and two low-bandwidth paths
 - with a short-delay path and two long-delay paths
 
@@ -113,7 +116,7 @@ Here are two powerful plotting tools. You can choose other tools at your conveni
 - [Gnuplot](http://www.gnuplot.info): a portable command-line driven graphing utility for Linux, OS/2, MS Windows, OSX, VMS, and many other platforms. 
 - [Matplotlib](https://matplotlib.org/index.html): a Python 2D plotting library which produces publication quality figures in a variety of hardcopy formats and interactive environments across platforms.
 
-Here is an example using Gnuplot:
+Here is an example using Gnuplot (Note that the example only uses two paths, but your implementation should use three paths):
 
 ```
 $ cat plot.gnu
@@ -155,19 +158,23 @@ In this lab, you don't have to follow the RFC strictly, but your downloader shou
 
 ### Where to Start
 
-The file `/src/httpclient.c` is a nice example. 
+In H2O, you may find these codes useful:
 
-[TODO]
+- `/src/httpclient.c`: A good starting point. Try to build and run it. You can build the downloader on the top of it.
+- `/lib/common/httpclient.c`: How to connect to a server
+- `/lib/common/http2client.c`: HTTP/2 functionalities
+- `/lib/common/socket/evloop.c.h`: Event-driven programming model
+- `/deps/klib/khash.h`: A standalone and lightweight C library implementing generic [hash table](https://en.wikipedia.org/wiki/Hash_table) with open addressing. See [here](http://attractivechaos.github.io/klib/#About) for details.
 
 ## Handin Instructions
 
-In this lab, you should submit a directory named `lab3` containing the following items in an archive named `lab3-[your name]-[your student ID].tar`:
+In this lab, you should submit a directory named `lab3` containing the following items in an archive named `lab3-[your student ID]-[your name].tar`:
 
-- `src/`: Source code of your programs
-- `Makefile` / `CMakeLists.txt`: Files that instruct build system to build your programs. 
-- `codelist.[pdf|html|md|docx|txt]`: A single document describing the way how your downloader work.
-- `plot/`: [TODO]
+- `src/`: Source code of your programs ([Programming Tasks]()) 
+- `bin/h2o-mphttp`: Your downloader in binary executable format, which can run on Ubuntu.([Programming Tasks]()) 
+- `codelist.[pdf|html|md|docx|txt]`: A single document that 
+  - answers the questions in [Writing Tasks]()
+  - helps others understand your code
+- `plot/`: Figures showing that your downloader does work. ([Drawing Tasks]())
 
-## Contact the Staff
-
-
+Please send an email with title `lab3-[your student ID]-[your name]` to [kenuo.xu@pku.edu.cn](mailto:kenuo.xu@pku.edu.cn). Missing the deadlines incurs a penalty.
