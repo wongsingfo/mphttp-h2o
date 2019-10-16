@@ -160,7 +160,7 @@ In this lab, you don't have to follow the RFC strictly, but your downloader shou
 
 In H2O, you may find these codes useful:
 
-- `/src/httpclient.c`: A good starting point. Try to build and run it. You can build the downloader on the top of it.
+- `/src/httpclient.c`: A good starting point. Try to build and run it. Use `-k` option to disable certificate verification. You can build the downloader on the top of this file.
 - `/lib/common/httpclient.c`: How to connect to a server
 - `/lib/common/http2client.c`: HTTP/2 functionalities
 - `/lib/common/socket/evloop.c.h`: Event-driven programming model
