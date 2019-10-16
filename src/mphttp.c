@@ -23,9 +23,14 @@ static h2o_mpclient_t *on_reschedule(h2o_mpclient_t* mp) {
   return NULL;
 }
 
+static void on_get_size() {
+  h2o_mpclient_reschedule(if2);
+}
+
 static int is_download_complete() {
   if (h2o_time_elapsed_nanosec(if1->ctx->loop) / 1000000 > 10000) {
   }
+
   if (if1->rangeclient.running || if1->rangeclient.pending) {
     return 0;
   }
@@ -65,18 +70,13 @@ int main(int argc, char* argv[]) {
   queue = h2o_multithread_create_queue(ctx.loop);
   h2o_multithread_register_receiver(queue, ctx.getaddr_receiver, h2o_hostinfo_getaddr_receiver);
 
-  if1 = h2o_mpclient_create("https://10.100.1.2/", &ctx, on_reschedule);
-  if2 = h2o_mpclient_create("https://10.100.2.2/", &ctx, on_reschedule);
+  if1 = h2o_mpclient_create("https://10.100.1.2/", &ctx, on_reschedule, on_get_size);
+  if2 = h2o_mpclient_create("https://10.100.2.2/", &ctx, on_reschedule, on_get_size);
   h2o_mpclient_fetch(if1,
                      "2M",
                      "./2M.bin",
                      0,
-                     1024*1024);
-  h2o_mpclient_fetch(if2,
-                     "2M",
-                     "./2M.bin",
-                     1024*1024,
-                     2* 1024*1024);
+                     0);
 
   int rv;
   while (! is_download_complete()) {

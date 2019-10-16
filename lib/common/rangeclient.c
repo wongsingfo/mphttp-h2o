@@ -162,7 +162,8 @@ static int on_body(h2o_httpclient_t *httpclient, const char *errstr) {
   // we can not use &buf for the first argument of |h2o_buffer_consume|
   h2o_buffer_consume(&(*httpclient->buf), buf->size);
 
-  if (h2o_rangeclient_get_remaining_time(client) <= h2o_rangeclient_get_ping_rtt(client)) {
+  if (h2o_rangeclient_get_remaining_time(client) <=
+      1.5 * h2o_rangeclient_get_ping_rtt(client)) {
     if (client->cb.on_mostly_complete != NULL) {
       client->cb.on_mostly_complete(client);
       client->cb.on_mostly_complete = NULL;
@@ -245,7 +246,9 @@ on_head(h2o_httpclient_t *httpclient, const char *errstr, int version, int statu
       return NULL;
     }
     client->range.end = filezs;
-    // TODO: should add a callback here?
+    if (client->cb.on_get_size != NULL) {
+      client->cb.on_get_size();
+    }
   }
 
   return on_body;

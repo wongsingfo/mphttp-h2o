@@ -58,6 +58,7 @@ struct st_h2o_rangeclient_t {
   struct {
     void (*on_mostly_complete)(h2o_rangeclient_t*);
     void (*on_complete)(h2o_rangeclient_t*);
+    void (*on_get_size)();
   }cb;
 };
 

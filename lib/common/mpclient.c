@@ -3,12 +3,15 @@
 //
 
 #include <h2o/mpclient.h>
+#include <h2o/rangeclient.h>
 #include "h2o/mpclient.h"
 
 #define H2O_MPCLIENT_NO_CERT_VERIFICATION
 
-h2o_mpclient_t* h2o_mpclient_create(char* request_url, h2o_httpclient_ctx_t *_ctx,
-                                    h2o_mpclient_t *(*on_reschedule)(h2o_mpclient_t *)) {
+h2o_mpclient_t *
+h2o_mpclient_create(char *request_url, h2o_httpclient_ctx_t *_ctx,
+                    h2o_mpclient_t *(*on_reschedule)(h2o_mpclient_t *),
+                    void (*on_get_size)()) {
   // |h2o_socketpool_create_target| will copy |request_url|
   // we can allocate it on stack
   h2o_url_t url_parsed;
@@ -23,6 +26,7 @@ h2o_mpclient_t* h2o_mpclient_create(char* request_url, h2o_httpclient_ctx_t *_ct
   mp->connpool = h2o_mem_alloc(sizeof(h2o_httpclient_connection_pool_t));
   mp->url_prefix = request_url;
   mp->on_reschedule = on_reschedule;
+  mp->on_get_size = on_get_size;
 
   char buf[16];
   static int data_log_count = 0;
@@ -57,7 +61,25 @@ h2o_mpclient_t* h2o_mpclient_create(char* request_url, h2o_httpclient_ctx_t *_ct
   return mp;
 }
 
+static void h2o_mpclient_update_bandwidth(h2o_mpclient_t *mp) {
+  if (mp->rangeclient.running) {
+    size_t rv = h2o_rangeclient_get_bw(mp->rangeclient.running);
+    if (rv > 0) {
+      mp->bandwidth = rv;
+    }
+  }
+
+  if (mp->rangeclient.pending) {
+    size_t rv = h2o_rangeclient_get_bw(mp->rangeclient.pending);
+    if (rv > 0) {
+      mp->bandwidth = rv;
+    }
+  }
+}
+
 void h2o_mpclient_update(h2o_mpclient_t* mp) {
+  h2o_mpclient_update_bandwidth(mp);
+
   if (mp->rangeclient.running == NULL) {
     mp->rangeclient.running = mp->rangeclient.pending;
     mp->rangeclient.pending = NULL;
@@ -77,6 +99,8 @@ static int assemble_url(h2o_mpclient_t *mp, char *request_path, h2o_url_t *url_p
 }
 
 static void on_mostly_complete(h2o_rangeclient_t *client) {
+  h2o_mpclient_update_bandwidth((h2o_mpclient_t*) client->data);
+
   h2o_mpclient_t *mp = (h2o_mpclient_t*) client->data;
   h2o_mpclient_update(mp);
   if (mp->rangeclient.pending != NULL) {
@@ -119,6 +143,7 @@ int h2o_mpclient_fetch(h2o_mpclient_t *mp, char *request_path, char *save_to_fil
                                                      save_to_file, begin, end);
     mp->rangeclient.running->cb.on_mostly_complete = on_mostly_complete;
     mp->rangeclient.running->cb.on_complete = on_complete;
+    mp->rangeclient.running->cb.on_get_size = mp->on_get_size;
     return 0;
   }
   return -1;
@@ -126,9 +151,15 @@ int h2o_mpclient_fetch(h2o_mpclient_t *mp, char *request_path, char *save_to_fil
 
 static size_t h2o_mpclient_guess_bw(h2o_mpclient_t *mp) {
   if (mp->rangeclient.running) {
-    return h2o_rangeclient_get_bw(mp->rangeclient.running);
+    size_t rv = h2o_rangeclient_get_bw(mp->rangeclient.running);
+    if (rv > 0) {
+      return rv;
+    }
   }
-  // TODO: reuse bandwidth history
+  if (mp->bandwidth > 0) {
+    return mp->bandwidth;
+  }
+
   printf("guess!\n");
   return 1024 * 64; // 64 Kb / s
 }
@@ -140,7 +171,7 @@ void h2o_mpclient_reschedule(h2o_mpclient_t *mp_idle) {
   h2o_rangeclient_t *client_busy = mp_busy->rangeclient.running;
   h2o_rangeclient_t *client_idle = mp_idle->rangeclient.pending;
   if (client_busy == NULL) {
-    printf("no need for rescheduling");
+    printf("no need for rescheduling\n");
     return;
   }
   assert(client_idle == NULL);
@@ -150,12 +181,27 @@ void h2o_mpclient_reschedule(h2o_mpclient_t *mp_idle) {
     return;
   }
 
+  // file size is unknown
+  if (client_busy->range.end == 0) {
+    return;
+  }
+
   // TODO: if remaining_time < guessed_rtt : return
+
+  if (h2o_time_elapsed_nanosec(mp_idle->ctx->loop) / 1000000 > 6000) {
+    printf("hello\n");
+  }
+
+  printf("%zu-%zu\n", client_busy->range.begin, client_busy->range.end);
 
   size_t bw_idle = h2o_mpclient_guess_bw(mp_idle);
   size_t bw_busy = h2o_mpclient_guess_bw(mp_busy);
 
   size_t remaining = client_busy->range.end - client_busy->range.begin - client_busy->range.received;
+  if (remaining < 1024 * 128 /* 128kb */) {
+    printf("remaining: %zukb, no need for rescheduling\n", remaining / 1024);
+    return;
+  }
 
   // take care of the overflow
   size_t data_idle = (uint64_t) remaining * bw_idle / (bw_idle + bw_busy);
@@ -169,6 +215,11 @@ void h2o_mpclient_reschedule(h2o_mpclient_t *mp_idle) {
                            data_end - data_idle, data_end);
   mp_idle->rangeclient.pending->cb.on_mostly_complete = on_mostly_complete;
   mp_idle->rangeclient.pending->cb.on_complete = on_complete;
+
+  printf("%zu-%zu %zu-%zu\n",
+         client_busy->range.begin, client_busy->range.end,
+         data_end - data_idle, data_end
+  );
 
   h2o_mpclient_update(mp_idle);
 }
