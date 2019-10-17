@@ -8,35 +8,39 @@
 #include "h2o.h"
 #include "h2o/mpclient.h"
 
-h2o_mpclient_t *if1;
-h2o_mpclient_t *if2;
-h2o_mpclient_t *if3;
+// TODO: put 3 into a constant
+h2o_mpclient_t *interface[3];
 
-static h2o_mpclient_t *on_reschedule(h2o_mpclient_t* mp) {
-  if (mp == if1) {
-    printf("call on_reschedule(1) at %zums\n", h2o_time_elapsed_nanosec(mp->ctx->loop) / 1000000);
-    return if2;
+// return a busy client
+static h2o_mpclient_t *on_reschedule(h2o_mpclient_t *mp) {
+  printf("call on_reschedule(1) at %zu ms\n",
+         h2o_time_elapsed_nanosec(mp->ctx->loop) / 1000000);
+
+  h2o_mpclient_t *rv = NULL;
+
+  for (int i = 0; i < 3; i++) {
+    if (interface[i] == mp) continue;
+
+    if (rv == NULL ||
+        h2o_mpclient_get_remaining(interface[i]) >
+        h2o_mpclient_get_remaining(rv)) {
+      rv = interface[i];
+    }
   }
-  if (mp == if2) {
-    printf("call on_reschedule(2) at %zums\n", h2o_time_elapsed_nanosec(mp->ctx->loop) / 1000000);
-    return if1;
-  }
-  return NULL;
+  return rv;
 }
 
 static void on_get_size() {
-  h2o_mpclient_reschedule(if2);
+  h2o_mpclient_reschedule(interface[1]);
+  h2o_mpclient_reschedule(interface[2]);
 }
 
 static int is_download_complete() {
-  if (h2o_time_elapsed_nanosec(if1->ctx->loop) / 1000000 > 10000) {
-  }
-
-  if (if1->rangeclient.running || if1->rangeclient.pending) {
-    return 0;
-  }
-  if (if2->rangeclient.running || if2->rangeclient.pending) {
-    return 0;
+  for (int i = 0; i < 3; i++) {
+    if (interface[i]->rangeclient.running ||
+        interface[i]->rangeclient.pending) {
+      return 0;
+    }
   }
   return 1;
 }
@@ -108,10 +112,14 @@ int main(int argc, char* argv[]) {
   queue = h2o_multithread_create_queue(ctx.loop);
   h2o_multithread_register_receiver(queue, ctx.getaddr_receiver, h2o_hostinfo_getaddr_receiver);
 
-  if1 = h2o_mpclient_create(cdn[0], &ctx, on_reschedule, on_get_size);
-  if2 = h2o_mpclient_create(cdn[1], &ctx, on_reschedule, on_get_size);
-  if3 = h2o_mpclient_create(cdn[2], &ctx, on_reschedule, on_get_size);
-  h2o_mpclient_fetch(if1,
+  for (int i = 0; i < 3; i++) {
+    interface[i] =
+      h2o_mpclient_create(cdn[i],
+                          &ctx,
+                          on_reschedule,
+                          on_get_size);
+  }
+  h2o_mpclient_fetch(interface[0],
                      path_of_url,
                      save_to_file,
                      0,
@@ -130,8 +138,9 @@ int main(int argc, char* argv[]) {
 #endif
   }
 
-  h2o_mpclient_destroy(if1);
-  h2o_mpclient_destroy(if2);
+  for (int i = 0; i < 3; i++) {
+    h2o_mpclient_destroy(interface[i]);
+  }
 
   return 0;
 }

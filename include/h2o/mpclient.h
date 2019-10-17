@@ -38,6 +38,7 @@ h2o_mpclient_create(char *request_host, h2o_httpclient_ctx_t *_ctx,
 void h2o_mpclient_destroy(h2o_mpclient_t* mp);
 int h2o_mpclient_fetch(h2o_mpclient_t *mp, char *request_path, char *save_to_file, size_t begin, size_t end);
 void h2o_mpclient_reschedule(h2o_mpclient_t *mp_idle);
+size_t h2o_mpclient_get_remaining(h2o_mpclient_t *mp);
 
 #ifdef __cplusplus
 }

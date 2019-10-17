@@ -246,3 +246,12 @@ void h2o_mpclient_destroy(h2o_mpclient_t* mp) {
     mp->data_log = NULL;
   }
 }
+
+size_t h2o_mpclient_get_remaining(h2o_mpclient_t *mp) {
+  h2o_rangeclient_t *client = mp->rangeclient.running;
+  if (client == NULL || client->range.end == 0) {
+    return 0;
+  }
+
+  return client->range.end - client->range.begin - client->range.received;
+}
