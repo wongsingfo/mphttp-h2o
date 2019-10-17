@@ -63,18 +63,18 @@ The aforementioned configuration is just an example. When testing your downloade
 
 ### Programming Task (30%)
 
-Your downloader is supposed to work after receiving these arguments:
+Your downloader should work after receiving these arguments:
 
-- Three servers' IP addresses.
-- `-o [name]`: the file path on the CDN server. In other words, you can send a request `https://[host]/[name]` to download the file.
-- the optional argument `-s [size]`: a hint indicating the file size is `size` bytes.
+- Three servers' IP addresses `<host#1> <host#2> <host#3>`.
+- `-t <path>`: the **absolute** file path on the CDN server. In other words, you can send a request `https://<host#i><path>` to download the file.
+- `-o <file>`: save the download to `<file>`. 
 
-These are possible inputs (suppose your downloader is `h2o-mphttp`):
+These are possible inputs (your downloader is `h2o-mphttp`):
 
 ```
-$ ./h2o-mphttp 10.100.1.2 10.100.2.2 10.100.3.2 -s 2097152 -o dir1/dir2/hello.flv
-$ ./h2o-mphttp 10.100.1.2 -o dir1/dir2/hello.flv 10.100.2.2 10.100.3.2 
-$ ./h2o-mphttp -s 2097152 10.100.3.2 10.100.1.2 10.100.2.2 -o dir1/dir2/hello.flv
+$ ./h2o-mphttp 10.100.1.2 10.100.2.2 10.100.3.2 -o 2M.bin -t /2M_file
+$ ./h2o-mphttp 10.100.1.2 -t /dir1/dir2/hello.flv 10.100.2.2 10.100.3.2 -o ./hello.flv
+$ ./h2o-mphttp -o /tmp/hello.flv 10.100.3.2 10.100.1.2 10.100.2.2 -t /dir1/dir2/hello.flv
 ```
 
 We recommend [getopt()](http://man7.org/linux/man-pages/man3/getopt.3.html) here, a function that parses the command-line arguments.
