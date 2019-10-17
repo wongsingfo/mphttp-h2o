@@ -22,6 +22,10 @@ h2o_mpclient_create(char *request_url, h2o_httpclient_ctx_t *_ctx,
 
   h2o_mpclient_t* mp = h2o_mem_alloc(sizeof(h2o_mpclient_t));
   h2o_mem_set_secure(mp, 0, sizeof(h2o_mpclient_t));
+
+  mp->mem_pool = h2o_mem_alloc(sizeof(h2o_mem_pool_t));
+  h2o_mem_init_pool(mp->mem_pool);
+
   mp->ctx = _ctx;
   mp->connpool = h2o_mem_alloc(sizeof(h2o_httpclient_connection_pool_t));
   mp->url_prefix = request_url;
@@ -225,6 +229,8 @@ void h2o_mpclient_reschedule(h2o_mpclient_t *mp_idle) {
 }
 
 void h2o_mpclient_destroy(h2o_mpclient_t* mp) {
+  h2o_mem_clear_pool(mp->mem_pool);
+  free(mp->mem_pool);
   free(mp->connpool);
   free(mp);
   if (mp->data_log) {

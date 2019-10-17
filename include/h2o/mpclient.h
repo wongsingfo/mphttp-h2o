@@ -21,6 +21,7 @@ struct st_h2o_mpclient_t {
   char *url_prefix;
   h2o_httpclient_ctx_t *ctx;
   h2o_httpclient_connection_pool_t *connpool;
+  h2o_mem_pool_t *mem_pool;
 
   size_t bandwidth;
   h2o_mpclient_t* (*on_reschedule)(h2o_mpclient_t*);
