@@ -13,13 +13,15 @@ h2o_mpclient_t *interface[3];
 
 // return a busy client
 static h2o_mpclient_t *on_reschedule(h2o_mpclient_t *mp) {
-  printf("call on_reschedule(1) at %zu ms\n",
-         h2o_time_elapsed_nanosec(mp->ctx->loop) / 1000000);
-
   h2o_mpclient_t *rv = NULL;
 
   for (int i = 0; i < 3; i++) {
-    if (interface[i] == mp) continue;
+    if (interface[i] == mp) {
+      printf("call on_reschedule(%d) at %zu ms\n",
+             i,
+             h2o_time_elapsed_nanosec(mp->ctx->loop) / 1000000);
+      continue;
+    }
 
     if (rv == NULL ||
         h2o_mpclient_get_remaining(interface[i]) >

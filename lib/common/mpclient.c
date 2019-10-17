@@ -42,7 +42,7 @@ h2o_mpclient_create(char *request_host, h2o_httpclient_ctx_t *_ctx,
 
   char buf[16];
   static int data_log_count = 0;
-  snprintf(buf, 16, "%d.dat", ++data_log_count);
+  snprintf(buf, 16, "%d.dat", data_log_count++);
   mp->data_log = fopen(buf, "w");
 
   h2o_socketpool_t *sockpool = h2o_mem_alloc(sizeof(*sockpool));
