@@ -66,7 +66,7 @@ The aforementioned configuration is just an example. When testing your downloade
 Your downloader should work after receiving these arguments:
 
 - Three servers' IP addresses `<host#1> <host#2> <host#3>`.
-- `-t <path>`: the **absolute** file path on the CDN server. In other words, you can send a request `https://<host#i><path>` to download the file.
+- `-t <path>`: the **absolute** file path on the CDN server. In other words, you can send a request `https://<host#i><path>` to download the file. **You oughtn't to verify the server certificates.**
 - `-o <file>`: save the download to `<file>`. 
 
 These are possible inputs (your downloader is `h2o-mphttp`):
@@ -81,7 +81,7 @@ We recommend [getopt()](http://man7.org/linux/man-pages/man3/getopt.3.html) here
 
 #### Test and Evaluation
 
-The grading of the final hand-in will be based on the download time your downloader takes on the given traces. Each trace contains two bandwidth and delay profiles used to specify the network condition (imposed by Mahimahi), one for each CDN server. Final evaluation traces are kept secret.
+The grading of the final hand-in will be based on the download time your downloader takes on the given traces. Each trace contains three bandwidth and delay profiles used to specify the network condition (imposed by Mahimahi), one for each CDN server. Final evaluation traces are kept secret.
 
 ### Writing Task (30%)
 
@@ -98,7 +98,7 @@ In addition to the questions above, Comments and ideas on the multipath HTTP sol
 You are required to draw some figures to prove that your downloader does work: 
 
 - under static network conditions
-- under varying bandwidth conditions (you can use the traces provided by Mahimahi)
+- under varying bandwidth conditions (you can use the [traces](https://github.com/ravinet/mahimahi/tree/master/traces) provided by Mahimahi)
 - with a high-bandwidth path and two low-bandwidth paths
 - with a short-delay path and two long-delay paths
 
@@ -165,9 +165,7 @@ In this lab, you should submit a directory named `lab3` containing the following
 
 - `src/`: Source code of your programs ([Programming Tasks]()) 
 - `bin/h2o-mphttp`: Your downloader in binary executable format, which can run on Ubuntu.([Programming Tasks]()) 
-- `codelist.[pdf|html|md|docx|txt]`: A single document that 
-  - answers the questions in [Writing Tasks]()
-  - helps others understand your code
+- `report.pdf`: A single document that answers the questions in [Writing Tasks]()
 - `plot/`: Figures showing that your downloader does work. ([Drawing Tasks]())
 
 Please send an email with title `lab3-[your student ID]-[your name]` to [kenuo.xu@pku.edu.cn](mailto:kenuo.xu@pku.edu.cn). Missing the deadlines incurs a penalty.
