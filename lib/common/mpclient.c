@@ -9,9 +9,15 @@
 #define H2O_MPCLIENT_NO_CERT_VERIFICATION
 
 h2o_mpclient_t *
-h2o_mpclient_create(char *request_url, h2o_httpclient_ctx_t *_ctx,
+h2o_mpclient_create(char *request_host, h2o_httpclient_ctx_t *_ctx,
                     h2o_mpclient_t *(*on_reschedule)(h2o_mpclient_t *),
                     void (*on_get_size)()) {
+  // TODO: put 256 in to a constant
+  // TODO: detect overflow
+  char request_url[256];
+  strncpy(request_url, "https://", 256);
+  strncat(request_url, request_host, 256);
+
   // |h2o_socketpool_create_target| will copy |request_url|
   // we can allocate it on stack
   h2o_url_t url_parsed;
@@ -28,7 +34,9 @@ h2o_mpclient_create(char *request_url, h2o_httpclient_ctx_t *_ctx,
 
   mp->ctx = _ctx;
   mp->connpool = h2o_mem_alloc(sizeof(h2o_httpclient_connection_pool_t));
-  mp->url_prefix = request_url;
+  int url_len = strlen(request_url);
+  mp->url_prefix = h2o_mem_alloc_pool(mp->mem_pool, char, url_len + 1);
+  strcpy(mp->url_prefix, request_url);
   mp->on_reschedule = on_reschedule;
   mp->on_get_size = on_get_size;
 

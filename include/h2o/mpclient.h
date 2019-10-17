@@ -32,7 +32,7 @@ struct st_h2o_mpclient_t {
 
 // TODO: typedef callback
 h2o_mpclient_t *
-h2o_mpclient_create(char *request_url, h2o_httpclient_ctx_t *_ctx,
+h2o_mpclient_create(char *request_host, h2o_httpclient_ctx_t *_ctx,
                     h2o_mpclient_t *(*on_reschedule)(h2o_mpclient_t *),
                     void (*on_get_size)());
 void h2o_mpclient_destroy(h2o_mpclient_t* mp);
