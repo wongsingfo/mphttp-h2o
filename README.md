@@ -83,13 +83,6 @@ We recommend [getopt()](http://man7.org/linux/man-pages/man3/getopt.3.html) here
 
 The grading of the final hand-in will be based on the download time your downloader takes on the given traces. Each trace contains two bandwidth and delay profiles used to specify the network condition (imposed by Mahimahi), one for each CDN server. Final evaluation traces are kept secret.
 
-#### Optional Tasks
-
-The tasks below are optional.
-
-- HTTP/1.1 Fallback: Although HTTP/2 is getting increasingly popular, many of today’s web servers still only support HTTP/1.1. Design your downloader to be compatible with HTTP/1.1 servers. Specifically, in this lab, the downloader should be capable of scheduling an HTTP/1.1 server and two HTTP/2 servers to download a file.
-- Data Consistency Check: In the real world, content from two CDN servers might be different. One possible reason for the difference is that middle-boxes in the network may cache the content data. If one of the paths is cached while the other is not, you may receive inconsistent data after CDN servers update their content. Design your downloader to report an error if such a situation arises.
-
 ### Writing Task (30%)
 
 Describe your implementation:
