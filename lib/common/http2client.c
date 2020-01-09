@@ -689,6 +689,16 @@ static void calc_ping_rtt(struct st_h2o_http2client_conn_t *conn, struct timeval
 //  printf("ping(%d) rtt: %d ms\n", conn->ping_marker, conn->ping_rtt / 1000);
 }
 
+#define mytimersub(a, b, result)                              \
+  do {                                          \
+    (result)->tv_sec = (a)->tv_sec - (b)->tv_sec;                  \
+    (result)->tv_usec = (a)->tv_usec - (b)->tv_usec;                  \
+    if ((result)->tv_usec < 0) {                          \
+      --(result)->tv_sec;                              \
+      (result)->tv_usec += 1000000;                          \
+    }                                          \
+  } while (0)
+
 static int handle_ping_frame(struct st_h2o_http2client_conn_t *conn, h2o_http2_frame_t *frame, const char **err_desc)
 {
     h2o_http2_ping_payload_t payload;
@@ -707,7 +717,7 @@ static int handle_ping_frame(struct st_h2o_http2client_conn_t *conn, h2o_http2_f
       h2o_loop_t *loop = conn->super.ctx->loop;
       struct timeval receive_time = h2o_gettimeofday(loop);
       struct timeval delta_time;
-      timersub(&receive_time, &send_time, &delta_time);
+      mytimersub(&receive_time, &send_time, &delta_time);
       calc_ping_rtt(conn, &delta_time);
     }
 
