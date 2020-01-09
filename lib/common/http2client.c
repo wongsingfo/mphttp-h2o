@@ -25,6 +25,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
+#include <time.h>
 #include "khash.h"
 #include "h2o/hpack.h"
 #include "h2o/httpclient.h"
